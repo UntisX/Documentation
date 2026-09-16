@@ -27,21 +27,22 @@
 │  │ - Routen + Middleware  │  │  - SQLx Queries                 │ │
 │  │ - Auth-Validierung     │  │  - Argon2 Passwort-Hashing      │ │
 │  │ - AES-Entschlüsselung  │  │  - Event-Broadcast (tokio)      │ │
-│  │ - CORS, Timeout, etc.  │  │  - Session-Cleanup              │ │
-│  └──────────┬─────────────┘  └──────────────┬─────────────────┘ │
-│             │                               │                   │
-│             └───────────► Trait-Interface ◄─┘                   │
+│  │ - CORS, Timeout, etc.  │  │  - Video-Signal-Broadcast       │ │
+│  └──────────┬─────────────┘  │  - Session-Cleanup              │ │
+│             │               └──────────────────────────────────┘ │
+│             └───────────► Trait-Interface ◄────────────────────┘ │
 │                         (Server Supertrait)                     │
 │  AppState<S> ◄──────── Toml-Service                             │
 │  ├── GET /events (SSE broadcast channel)                        │
+│  ├── GET /video/signals/stream/{room} (SSE broadcast)           │
 │  └── DB-Pool (PostgreSQL)                                       │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
                            ▼
               ┌────────────────────────────┐
               │  PostgreSQL 17 (Docker)     │
-              │  - 36 Migrationen           │
-              │  - 27 Tabellen              │
+              │  - 40 Migrationen           │
+              │  - 32 Tabellen              │
               └────────────────────────────┘
 ```
 
@@ -62,7 +63,7 @@ Das Backend ist absichtlich in drei Teile aufgeteilt (Git-Submodule):
 - Das **Framework** (`server-basis`) definiert, WELCHE Endpunkte es gibt und wie sie validiert werden.
 - Die **Implementierung** (`server-default`) definiert, WAS passiert (SQL, Hashing, Events).
 - Ein anderes Backend (z.B. mit einer anderen Datenbank) könnte das Framework erben und nur die Trait-Methoden neu implementieren.
-- Das `Server`-Trait (in `server-basis/src/server.rs`) fordert **30 Service-Traits** – wer alle implementiert, hat ein vollständiges UntisX-Backend.
+- Das `Server`-Trait (in `server-basis/src/server.rs`) fordert **35 Service-Traits** – wer alle implementiert, hat ein vollständiges UntisX-Backend.
 
 ---
 
@@ -101,7 +102,7 @@ src/
 ├── components/           → Wiederverwendbare UI-Bausteine (22 Dateien)
 ├── contexts/             → Auth, Theme, Toast (React Context)
 ├── hooks/                → useRealtime, useChatStream (SSE)
-├── pages/                → 1 Datei pro Route (29 Dateien)
+├── pages/                → 1 Datei pro Route (30 Dateien)
 ├── styles/global.css     → Komplette CSS (kein Framework)
 └── utils/                → format, navigation, pdfGenerator
 ```
@@ -159,6 +160,30 @@ validate_api_key(...)     → Über X-Api-Key Header + Scopes
 - Chat-Aktionen senden Events auf den Broadcast-Channel.
 - Der SSE-Handler filtert nach `target_user_ids` – nur relevante Empfänger erhalten das Update.
 - Bei `enc=1` wird jede `data:`-Zeile mit AES-256-GCM verschlüsselt.
+
+### Video-Signaling (zweiter Broadcast-Channel)
+
+```
+        tokio::sync::broadcast::Sender<VideoSignalBroadcast> (Kapazität 256)
+                                │
+        ┌───────────────────────┼───────────────────────┐
+        │                       │                       │
+  video.rs               video/signals/stream/{room}
+  (POST /video/signals)  (SSE-Endpoint, raumbezogen)
+        │                       │
+   ┌────▼────┐            ┌─────▼─────┐
+   │ Relay   │            │ Filter nach│
+   │ to Room │            │ room + user│
+   └─────────┘            └─────┬─────┘
+                                │
+                      SSE-Verbindung zum Client
+                      data: {"room": "...", "from": 5, "message": {...}}
+```
+
+- WebRTC-Signale werden **nicht** in der DB gespeichert – nur im RAM weitergeleitet.
+- Jeder Teilnehmer hält eine separate SSE-Verbindung zu `/video/signals/stream/{room}`.
+- Nachrichten mit `to:`-Feld werden nur an den Ziel-User zugestellt, Broadcasts an alle aktiven Verbindungen im Raum.
+- Room-Token wird aus `SHA-256(room_name:user_id)` abgeleitet – jeder User hat seinen eigenen Token.
 
 ---
 

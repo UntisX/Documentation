@@ -28,7 +28,7 @@ client/
     ├── components/            Wiederverwendbare UI-Bausteine (21 Dateien)
     ├── contexts/              AuthContext, ThemeContext, ToastContext
     ├── hooks/                 useRealtime, useChatStream (SSE)
-    ├── pages/                 29 Seiten (1 je Route)
+    ├── pages/                 30 Seiten (1 je Route)
     ├── styles/global.css      Komplettes Styling
     └── utils/
         ├── format.ts          Deutsche Datums-/Fehler-Formatierung
@@ -99,6 +99,7 @@ client/
 | `Setup.tsx` | `/setup` | Erster Admin (Bootstrap) |
 | `Activate.tsx` | `/activate` | Aktivierungslink/QR |
 | `Terminal.tsx` | `/terminal` | Super-Admin-Konsole (eigene API) |
+| `Infoscreen.tsx` | `/infoscreen` | Öffentliche Anzeigetafel (kein Auth) |
 | `Dashboard.tsx` | `/dashboard` | Drag&Drop-Widget-Grid |
 | `Students.tsx` | `/students` | Schüler-CRUD |
 | `Teachers.tsx` | `/teachers` | Lehrer-CRUD |
@@ -114,6 +115,10 @@ client/
 | `Grades.tsx` | `/grades` | Noten-CRUD + Durchschnitt |
 | `Homework.tsx` | `/homework` | Hausaufgaben |
 | `Chats.tsx` | `/chats` | WhatsApp-artiger Chat |
+| `ClassBook.tsx` | `/class-book` | Digitales Klassenbuch |
+| `Bookings.tsx` | `/bookings` | Ressourcen-Buchungssystem |
+| `VideoConference.tsx` | `/video` | WebRTC-Videokonferenz |
+| `VideoJoin.tsx` | `/video/join/:room` | Meeting-Join per Link |
 | `AdminPanel.tsx` | `/admin` | Settings, Tabs, Moodle, API-Keys |
 | `AuditLog.tsx` | `/admin/audit` | Audit-Protokoll |
 | `Settings.tsx` | `/settings` | Theme, Account, Passwort |

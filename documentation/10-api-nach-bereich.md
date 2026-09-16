@@ -25,6 +25,9 @@
 17. [Externe Schnittstelle](#17-externe-schnittstelle-external)
 18. [Proxy & Integrationen](#18-proxy--integrationen)
 19. [Sync](#19-sync)
+20. [Video-Meetings](#20-video-meetings-video)
+21. [Buchungssystem](#21-buchungssystem-resources--bookings)
+22. [Digitales Klassenbuch](#22-digitales-klassenbuch-class-book)
 
 ---
 
@@ -341,6 +344,66 @@
 
 ---
 
+## 20. Video-Meetings (`/video`)
+
+```
+/video
+├── /meetings
+│   ├── GET    /video/meetings                Meeting-Liste
+│   ├── POST   /video/meetings                Meeting erstellen
+│   ├── PUT    /video/meetings/{id}           Meeting ändern (Host)
+│   ├── DELETE /video/meetings/{id}           Meeting löschen (Host)
+│   └── GET    /video/meetings/{id}/join      Meeting beitreten
+├── /join
+│   └── GET    /video/join/{room}             Via geteilten Link beitreten
+└── /signals
+    ├── POST   /video/signals/{room}          WebRTC-Signal weiterleiten
+    └── GET    /video/signals/stream/{room}   SSE-Signal-Stream
+```
+
+→ [Ausführlich](api/video.md)
+
+---
+
+## 21. Buchungssystem (`/resources` & `/bookings`)
+
+```
+/resources
+├── GET    /resources                     Ressourcenliste
+├── POST   /resources                     Ressource anlegen
+├── PUT    /resources/{id}                Ressource ändern
+└── DELETE /resources/{id}                Ressource deaktivieren (soft)
+
+/bookings
+├── GET    /bookings                      Buchungen (Filter: resource/date/user)
+├── POST   /bookings                      Buchung erstellen (Konfliktprüfung)
+├── GET    /bookings/overview             Buchungs-Übersicht
+├── GET    /bookings/check-conflict       Konfliktprä-Prüfung
+├── PUT    /bookings/{id}                 Buchung ändern
+└── DELETE /bookings/{id}                 Buchung stornieren
+```
+
+→ [Ausführlich](api/bookings.md)
+
+---
+
+## 22. Digitales Klassenbuch (`/class-book`)
+
+```
+/class-book
+├── GET    /class-book                    Einträge (Filter: class/subject/date)
+├── POST   /class-book                    Eintrag erstellen (Lehrer)
+├── GET    /class-book/overview           Übersicht pro Klasse
+├── GET    /class-book/infoscreen         Öffentliche Anzeige (kein Auth)
+├── GET    /class-book/{id}               Einzelnen Eintrag
+├── PUT    /class-book/{id}               Eintrag ändern (Eigentümer)
+└── DELETE /class-book/{id}               Eintrag löschen (Eigentümer)
+```
+
+→ [Ausführlich](api/class-book.md)
+
+---
+
 ## Legende
 
 | Symbol | Bedeutung |
@@ -376,4 +439,7 @@
 | External | 4 | – | – | – | – |
 | Proxy | 1 | – | – | – | – |
 | Sync | 1 | – | – | – | – |
-| **Gesamt** | **45** | **27** | **16** | **1** | **16** |
+| Video | 4 | 2 | 1 | – | 1 |
+| Bookings | 4 | 2 | 1 | – | 1 |
+| Class-Book | 4 | 1 | 1 | – | 1 |
+| **Gesamt** | **58** | **32** | **20** | **1** | **21** |

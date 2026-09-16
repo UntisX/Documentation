@@ -46,6 +46,9 @@
 | Proxy (`/proxy`) | [api/proxy.md](api/proxy.md) |
 | Sync & Health | [api/sync-und-health.md](api/sync-und-health.md) |
 | Fehlerbehandlung | [api/fehlerbehandlung.md](api/fehlerbehandlung.md) |
+| Video-Meetings (`/video/*`) | [api/video.md](api/video.md) |
+| Buchungssystem (`/resources` & `/bookings`) | [api/bookings.md](api/bookings.md) |
+| Klassenbuch (`/class-book/*`) | [api/class-book.md](api/class-book.md) |
 
 ---
 
@@ -63,6 +66,25 @@
 
 ---
 
+## Android-Dokumentation
+
+| Kapitel | Beschreibung |
+|---------|-------------|
+| [Android-App – Übersicht](android/README.md) | Inhaltsverzeichnis + Kennzahlen |
+| [Architektur](android/01-architektur.md) | Schichten, Datenfluss, Projektstruktur |
+| [Auth & Login](android/02-auth-login.md) | Token-Management, DataStore, Multi-Account, Bootstrap |
+| [API-Client & Netzwerk](android/03-api-client.md) | Retrofit/OkHttp, Interceptor, alle Endpunkte, SSE |
+| [Navigation & Theme](android/04-navigation-theme.md) | Routen, Bottom-Navigation, Start-Flow, Farben |
+| [Sicherheit](android/05-security.md) | TLS, Token-Speicherung, Network Security, Risiken |
+| [Build & Setup](android/06-build-setup.md) | Gradle, Version Catalog, Befehle |
+| [Datenmodelle](android/07-datenmodelle.md) | Alle DTOs & Request/Response-Typen |
+| [Repositories – Übersicht](android/repositories/README.md) | `ApiResult`-Pattern, Fehlerbehandlung |
+| [Repositories im Detail](android/repositories/README.md#repository-liste) | Auth, Timetable, Homework, Grade, Message, Chat, Absence, Admin |
+| [Screens – Übersicht](android/screens/README.md) | Routen-Tabelle, Rollen-Zugriff |
+| [Screens im Detail](android/screens/README.md#routen-tabelle) | Server-URL, Login, Planner, Fehlstunden, Hausaufgaben, Chat, Noten, Profil, Vertretungsplan, Admin-Panel, Audit, Schüler, Lehrer, Fächer, Räume, Klingelzeiten |
+
+---
+
 ## Schnellsuche
 
 Suche nach einem spezifischen Endpunkt oder Begriff:
@@ -71,17 +93,17 @@ Suche nach einem spezifischen Endpunkt oder Begriff:
 
 | Methode | Anzahl | Übersicht |
 |---------|--------|-----------|
-| **GET** | 32 | [Alle GET-Endpunkte →](09-api-suchindex.md#get-endpunkte) |
-| **POST** | 18 | [Alle POST-Endpunkte →](09-api-suchindex.md#post-endpunkte) |
-| **PUT** | 14 | [Alle PUT-Endpunkte →](09-api-suchindex.md#put-endpunkte) |
-| **DELETE** | 12 | [Alle DELETE-Endpunkte →](09-api-suchindex.md#delete-endpunkte) |
+| **GET** | 58 | [Alle GET-Endpunkte →](09-api-suchindex.md#get-endpunkte) |
+| **POST** | 32 | [Alle POST-Endpunkte →](09-api-suchindex.md#post-endpunkte) |
+| **PUT** | 20 | [Alle PUT-Endpunkte →](09-api-suchindex.md#put-endpunkte) |
+| **DELETE** | 21 | [Alle DELETE-Endpunkte →](09-api-suchindex.md#delete-endpunkte) |
 | **PATCH** | 1 | [Alle PATCH-Endpunkte →](09-api-suchindex.md#patch-endpunkte) |
 
 ### Nach Zugriffsberechtigung
 
 | Level | Beschreibung | Endpunkte |
 |-------|-------------|-----------|
-| **Öffentlich** | Kein Token nötig | `/health`, `/bootstrap`, `/auth/login`, `/auth/activate` |
+| **Öffentlich** | Kein Token nötig | `/health`, `/bootstrap`, `/auth/login`, `/auth/activate`, `/class-book/infoscreen` |
 | **Authentifiziert** | `Bearer <token>` | Alle anderen Endpunkte (Rolle egal) |
 | **Nur Admin** | `Bearer` + Rolle `admin` | User-CUD, School-CUD, API-Keys, Audit-Stats |
 | **API-Key** | `X-Api-Key` Header | `/external/*` (Read-only) |
@@ -93,7 +115,8 @@ Suche nach einem spezifischen Endpunkt oder Begriff:
 
 | Komponente | Technologie |
 |------------|-------------|
-| Frontend | React 18, TypeScript, Vite 5, React Router 6 |
+| Frontend (Web) | React 18, TypeScript, Vite 5, React Router 6 |
+| Android-App | Kotlin, Jetpack Compose, Retrofit, Hilt |
 | Backend | Rust, Axum 0.8, Tokio |
 | Datenbank | PostgreSQL 17 via SQLx |
 | Auth | Opaque Bearer Tokens (SHA-256 gehasht in DB) |

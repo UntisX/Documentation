@@ -64,6 +64,18 @@
 | 44 | `GET /timetable/teacher-absences` | Lehrer-Abwesenheiten | eingeloggt | [timetable](api/timetable.md) |
 | 45 | `GET /timetable/vertretungsplan` | Vertretungsplan (Kombi) | eingeloggt | [timetable](api/timetable.md) |
 | 46 | `GET /users` | Benutzerliste | eingeloggt | [users](api/users.md) |
+| 47 | `GET /class-book` | Klassenbucheinträge | eingeloggt | [class-book](api/class-book.md) |
+| 48 | `GET /class-book/overview` | Klassenbuch-Übersicht | eingeloggt | [class-book](api/class-book.md) |
+| 49 | `GET /class-book/infoscreen` | Öffentlicher Infoscreen | öffentlich | [class-book](api/class-book.md) |
+| 50 | `GET /class-book/{id}` | Einzelner Eintrag | eingeloggt | [class-book](api/class-book.md) |
+| 51 | `GET /resources` | Ressourcenliste | eingeloggt | [bookings](api/bookings.md) |
+| 52 | `GET /bookings` | Buchungen | eingeloggt | [bookings](api/bookings.md) |
+| 53 | `GET /bookings/overview` | Buchungs-Übersicht | eingeloggt | [bookings](api/bookings.md) |
+| 54 | `GET /bookings/check-conflict` | Konfliktprüfung | eingeloggt | [bookings](api/bookings.md) |
+| 55 | `GET /video/meetings` | Video-Meetings | eingeloggt | [video](api/video.md) |
+| 56 | `GET /video/meetings/{id}/join` | Meeting beitreten | eingeloggt | [video](api/video.md) |
+| 57 | `GET /video/join/{room}` | Meeting via Link beitreten | eingeloggt | [video](api/video.md) |
+| 58 | `GET /video/signals/stream/{room}` | SSE-Signal-Stream | eingeloggt | [video](api/video.md) |
 
 ---
 
@@ -98,6 +110,11 @@
 | 25 | `POST /timetable/{id}/cancel` | Stunde ausfallen lassen | eingeloggt | [timetable](api/timetable.md) |
 | 26 | `POST /users` | Benutzer anlegen | **Admin** | [users](api/users.md) |
 | 27 | `POST /users/{id}/activation-reset` | Aktivierungslink neu | **Admin** | [users](api/users.md) |
+| 28 | `POST /class-book` | Klassenbucheintrag erstellen | eingeloggt | [class-book](api/class-book.md) |
+| 29 | `POST /resources` | Ressource anlegen | eingeloggt | [bookings](api/bookings.md) |
+| 30 | `POST /bookings` | Buchung erstellen | eingeloggt | [bookings](api/bookings.md) |
+| 31 | `POST /video/meetings` | Meeting erstellen | eingeloggt | [video](api/video.md) |
+| 32 | `POST /video/signals/{room}` | Signal senden | eingeloggt | [video](api/video.md) |
 
 ---
 
@@ -121,6 +138,10 @@
 | 14 | `PUT /timetable/homework/{id}` | Hausaufgabe ändern | Lehrer/Admin | [timetable](api/timetable.md) |
 | 15 | `PUT /timetable/{id}` | Stundenplaneintrag ändern | **Admin** | [timetable](api/timetable.md) |
 | 16 | `PUT /users/{id}` | Benutzer ändern | **Admin** | [users](api/users.md) |
+| 17 | `PUT /class-book/{id}` | Eintrag ändern | eingeloggt | [class-book](api/class-book.md) |
+| 18 | `PUT /resources/{id}` | Ressource ändern | eingeloggt | [bookings](api/bookings.md) |
+| 19 | `PUT /bookings/{id}` | Buchung ändern | eingeloggt | [bookings](api/bookings.md) |
+| 20 | `PUT /video/meetings/{id}` | Meeting ändern | eingeloggt | [video](api/video.md) |
 
 ---
 
@@ -151,6 +172,10 @@
 | 13 | `DELETE /timetable/teacher-absences/{id}` | Lehrer-Abwesenheit löschen | eingeloggt | [timetable](api/timetable.md) |
 | 14 | `DELETE /timetable/{id}` | Stundenplaneintrag löschen | **Admin** | [timetable](api/timetable.md) |
 | 15 | `DELETE /users/{id}` | Benutzer löschen | **Admin** | [users](api/users.md) |
+| 16 | `DELETE /class-book/{id}` | Eintrag löschen | eingeloggt | [class-book](api/class-book.md) |
+| 17 | `DELETE /resources/{id}` | Ressource deaktivieren | eingeloggt | [bookings](api/bookings.md) |
+| 18 | `DELETE /bookings/{id}` | Buchung stornieren | eingeloggt | [bookings](api/bookings.md) |
+| 19 | `DELETE /video/meetings/{id}` | Meeting löschen | eingeloggt | [video](api/video.md) |
 
 > **Hinweis:** `DELETE /timetable/{id}/cancel` existiert als Route (Stundenausfall zurücknehmen) und erwartet optional `?date=YYYY-MM-DD`. <br>
 > `PUT /settings/tabs` erfasst auch `/settings` (GET) im offiziellen Client – im Backend sind `/school/settings` und `/settings` zwei getrennte Konzepte.
@@ -188,6 +213,10 @@
 | Vertretung | `GET/POST /timetable/substitutions`, `DELETE /timetable/substitutions/{id}` |
 | Vertretungsplan | `GET /timetable/vertretungsplan` |
 | Benutzer | `GET/POST /users`, `PUT/DELETE /users/{id}` |
+| Buchung | `GET/POST /bookings`, `PUT/DELETE /bookings/{id}`, `GET /bookings/overview`, `GET /bookings/check-conflict`, `GET/POST /resources`, `PUT/DELETE /resources/{id}` |
+| Klassenbuch | `GET/POST /class-book`, `GET /class-book/overview`, `GET /class-book/infoscreen`, `PUT/DELETE /class-book/{id}` |
+| Meeting | `GET/POST /video/meetings`, `PUT/DELETE /video/meetings/{id}`, `GET /video/meetings/{id}/join`, `GET /video/join/{room}` |
+| Video | `GET/POST /video/signals/{room}`, `GET /video/signals/stream/{room}` |
 
 ---
 

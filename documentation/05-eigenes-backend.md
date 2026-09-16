@@ -137,7 +137,7 @@ struct MyServer {
     event_tx: broadcast::Sender<ChannelEvent>,
 }
 
-// 3. Server-Trait implementieren – ALLE 30 Services
+// 3. Server-Trait implementieren – ALLE 35 Services
 impl Server for MyServer { /* ... */ }
 
 // 4. Starten – das komplette Routing + Middleware kommt vom Framework
@@ -149,7 +149,7 @@ async fn main() {
 }
 ```
 
-> **Wichtig:** Der `Server`-Trait fordert exakt die 30 Services (Messages, Chats, Timetable, Grades, …). Fehlt einer, kompiliert nichts – das garantiert Vollständigkeit.
+> **Wichtig:** Der `Server`-Trait fordert exakt die 35 Services (Auth, Messages, Chats, Timetable, Grades, ClassBook, Video, Bookings, …). Fehlt einer, kompiliert nichts – das garantiert Vollständigkeit.
 
 ---
 

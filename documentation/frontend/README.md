@@ -28,7 +28,7 @@
 | [API-Client](api-client.md) | `apiRequest`, Endpunkt-Mapping, Fehler, Tokens |
 | [Verschlüsselung](verschluesselung.md) | AES-256-GCM im Detail |
 | [Komponenten](komponenten.md) | Alle wiederverwendbaren UI-Bausteine |
-| [Seiten & Routen](seiten.md) | Alle 29 Seiten mit Zweck |
+| [Seiten & Routen](seiten.md) | Alle 34 Seiten mit Zweck |
 | [State Management](state-management.md) | Contexts, Hooks, localStorage |
 
 ---
@@ -42,11 +42,11 @@ Ein fetch-Wrapper (api/client.ts)
   ↕ AES-256-GCM (api/crypto.ts)
   ↕ Pfad-Mapping (api/endpoints.ts)
   ↕ mappers (api/mappers.ts)
-      ↕
-  21 geteilte Komponenten
-  29 Seiten
-  3 Contexts + 2 Hooks
-  1 globales CSS
+↕
+   21 geteilte Komponenten
+   30 Seiten
+   3 Contexts + 2 Hooks
+   1 globales CSS
 ```
 
 **Für dein eigenes Frontend** kannst du dir den API-Client abschauen (siehe [API-Client](api-client.md)) und ihn 1:1 wiederverwenden – er ist frameworks-unabhängig.
@@ -75,6 +75,8 @@ Ein fetch-Wrapper (api/client.ts)
 | `/login` | Login | – |
 | `/setup` | Setup (Bootstrap) | – |
 | `/activate` | Aktivierung | – |
+| `/infoscreen` | Öffentlicher Infoscreen | – |
+| `/video/join/:room` | Video-Meeting beitreten (Link) | auth |
 | `/dashboard` | Dashboard | auth |
 | `/students` | Schüler | auth |
 | `/timetable` | Planer | auth |
@@ -82,6 +84,9 @@ Ein fetch-Wrapper (api/client.ts)
 | `/vertretungsplan` | Vertretungsplan | admin+teacher |
 | `/absences` | Fehlzeiten | auth |
 | `/chats` | Chats | auth |
+| `/class-book` | Digitales Klassenbuch | admin+teacher |
+| `/bookings` | Buchungssystem | auth |
+| `/video` | Video-Konferenz | auth |
 | `/grades` | Noten | admin+teacher+student |
 | `/subjects` | Fächer | admin |
 | `/teachers` | Lehrer | admin |

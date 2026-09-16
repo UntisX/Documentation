@@ -54,6 +54,10 @@ Zusätzlich gibt es ein **Pfad-Mapping** (`ENDPOINT_MAP`): logische Frontend-Pfa
 | `/events` | `/events` (SSE) |
 | `/search` | `/search` |
 | `/audit` | `/administration/audit` |
+| `/class-book` | `/class-book` |
+| `/resources` | `/resources` |
+| `/bookings` | `/bookings` |
+| `/video/meetings` | `/video/meetings` |
 
 `resolveEndpoint()` sucht den **längsten passenden Map-Prefix** und hängt Rest + Query an.
 
@@ -154,6 +158,11 @@ Gegliedert nach Seiten/Tasks – als „Trigger“-Liste zum Nachschlagen:
 | API-Keys | `GET/POST /api-keys`, `PUT /api-keys/{id}/toggle`, `DELETE /api-keys/{id}` |
 | Sync | `GET /sync/versions` |
 | Proxy/Integration | `GET /proxy?url=` |
+| Klassenbuch | `GET/POST /class-book`, `PUT/DELETE /class-book/{id}`, `GET /class-book/overview`, `GET /class-book/infoscreen` |
+| Ressourcen | `GET/POST /resources`, `PUT/DELETE /resources/{id}` |
+| Buchungen | `GET/POST /bookings`, `GET /bookings/overview`, `GET /bookings/check-conflict`, `PUT/DELETE /bookings/{id}` |
+| Video-Meetings | `GET/POST /video/meetings`, `PUT/DELETE /video/meetings/{id}`, `GET /video/meetings/{id}/join`, `GET /video/join/{room}` |
+| Video-Signaling | `POST /video/signals/{room}`, `GET /video/signals/stream/{room}` (SSE) |
 
 ---
 

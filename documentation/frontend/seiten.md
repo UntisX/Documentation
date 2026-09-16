@@ -1,6 +1,6 @@
 # Frontend: Seiten & Routen
 
-> Alle 29 Seiten mit ihrer Funktion und den wichtigsten API-Aufrufen.
+> Alle 34 Seiten mit ihrer Funktion und den wichtigsten API-Aufrufen.
 
 ---
 
@@ -24,6 +24,12 @@
 - Super-Admin-Konsole über **separate** Terminal-API (`/api/terminal/...`)
 - Login, Statistiken, Schul-Approvals, User-Verwaltung, Logs
 - Token: `terminal_token`
+
+### Infoscreen — `/infoscreen`
+- Öffentliche Anzeigetafel (kein Login nötig)
+- Zeigt aktuelle Vertretungen, Lehrer-Abwesenheiten und Ausfälle
+- `GET /timetable/vertretungsplan` (ohne Token)
+- Ideal für große Monitore im Schulflur
 
 ---
 
@@ -58,6 +64,33 @@
 - Overlay „Lehrer-ABWESENHEIT" (teacher-absences)
 - List/Grid-Ansichten, Filter „nur Änderungen" / „heute"
 - Live via SSE
+
+---
+
+## Video & Buchung
+
+### ClassBook (Digitales Klassenbuch) — `/class-book` (admin, teacher)
+- Einträge pro Klasse/Fach/Datum mit Unterrichtsinhalt
+- `GET/POST /class-book`, `PUT/DELETE /class-book/{id}`
+- Entry-Types: `lesson`/`homework`/`test`/`project`/`other`
+- Keine SSE-Events (Client poollt)
+
+### Bookings (Buchungssystem) — `/bookings`
+- Buchbare Ressourcen (Computer-Räume, Tablets, Beamer)
+- Zeitbuchungen mit Konfliktprüfung
+- `GET/POST /resources`, `GET/POST /bookings`
+- `GET /bookings/check-conflict` für Echtzeit-Validierung beim Buchen
+- Status: confirmed / cancelled
+
+### VideoConference — `/video`
+- WebRTC-Konferenzraum mit Meeting-Verwaltung
+- `GET/POST /video/meetings`, `PUT/DELETE /video/meetings/{id}`
+- Join per Link: `GET /video/join/{room}`
+- Signaling via `POST /video/signals/{room}` + SSE-Stream
+
+### VideoJoin — `/video/join/:room`
+- Schnellleinstieg über geteilten Link
+- `GET /video/join/{room}` → Meeting-Daten + Join-URL
 
 ---
 

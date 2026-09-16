@@ -1,6 +1,6 @@
 # Datenbank-Schema
 
-> Das komplette PostgreSQL-Schema (36 Migrationen, 27 Tabellen) der UntisX-Server-Datenbank.
+> Das komplette PostgreSQL-Schema (40 Migrationen, 32 Tabellen) der UntisX-Server-Datenbank.
 
 ---
 
@@ -62,11 +62,21 @@
    │ last_read_id     │ │ dashboard_layout│ └─────────────────┘ └─────────────────┘
    └──────────────────┘ └─────────────────┘   ┌─────────────────┐
                                                │ integrations    │
-                                               │ id,name,url,    │
-   ┌─────────────────┐ ┌─────────────────┐    │ icon,enabled,   │
-   │ resource_versions│ │ teacher_absences│    │ roles           │
-   │ resource,version│ │ teacher_id,date │    └─────────────────┘
-   └─────────────────┘ └─────────────────┘
+    ┌─────────────────┐ ┌─────────────────┐   │ id,name,url,    │
+    │ resource_versions│ │ teacher_absences│   │ icon,enabled,   │
+    │ resource,version│ │ teacher_id,date │   └─────────────────┘
+    └─────────────────┘ └─────────────────┘
+    ┌─────────────────┐ ┌─────────────────┐   ┌─────────────────┐
+    │ video_meetings  │ │ class_book_     │   │ resources       │
+    │ title,room_name │ │ entries         │   │ name,type,      │
+    │ host_id,active  │ │ class,subject,  │   │ location,cap    │
+    └─────────────────┘ │ period,content  │   └────────┬────────┘
+    ┌─────────────────┐ └─────────────────┘            │
+    │ chat_attachments│                        ┌───────▼────────┐
+    │ storage_key,    │                        │ bookings       │
+    │ data (BYTEA)    │                        │ resource_id,   │
+    └─────────────────┘                        │ user_id,dates  │
+                                               └────────────────┘
 ```
 
 ---
@@ -384,17 +394,89 @@
 | `tutorial_seen` | |
 | `created_at` / `updated_at` | |
 
+### `video_meetings` – Video-Meetings
+
+| Spalte | Hinweis |
+|--------|---------|
+| `id` PK | |
+| `title` | Meeting-Name |
+| `description` | Beschreibung |
+| `room_name` UNIQUE | Eindeutiger Raumname (für WebRTC) |
+| `host_id` FK → users | Ersteller |
+| `starts_at` | Startzeit |
+| `ends_at` | Endzeit |
+| `jitsi_server` | Default `meet.jit.si` |
+| `is_active` | INTEGER (als Bool serialisiert) |
+| `created_at` | |
+
+### `resources` – Buchbare Ressourcen
+
+| Spalte | Hinweis |
+|--------|---------|
+| `id` PK | |
+| `name` UNIQUE | z.B. `IT-Raum 101` |
+| `resource_type` | `computer_room`/`tablet`/`beamer`/`subject_room`/`laptop`/`other` |
+| `location` | Standort |
+| `description` | |
+| `capacity` | Kapazität |
+| `active` | INTEGER (Soft-Delete) |
+| `created_at` | |
+
+### `bookings` – Zeitbuchungen
+
+| Spalte | Hinweis |
+|--------|---------|
+| `id` PK | |
+| `resource_id` FK → resources | |
+| `user_id` FK → users | |
+| `booking_date` | `YYYY-MM-DD` |
+| `time_start` | `HH:MM` |
+| `time_end` | muss > time_start |
+| `purpose` | Zweck |
+| `status` | `confirmed`/`cancelled` |
+| `created_at` | |
+
+### `class_book_entries` – Digitales Klassenbuch
+
+| Spalte | Hinweis |
+|--------|---------|
+| `id` PK | |
+| `class_id` FK → classes | |
+| `teacher_id` FK → users | |
+| `subject_id` FK → subjects | |
+| `date` | `YYYY-MM-DD` |
+| `period` | 1–12 |
+| `content` | Unterrichtsinhalt |
+| `homework` | Hausaufgabe (optional) |
+| `entry_type` | `lesson`/`homework`/`test`/`project`/`other` |
+| `remarks` | Anmerkungen |
+| `created_at` / `updated_at` | |
+
+### `chat_attachments` – Chat-Anhänge
+
+| Spalte | Hinweis |
+|--------|---------|
+| `id` PK | |
+| `conversation_id` FK | |
+| `sender_id` FK | |
+| `storage_key` UNIQUE | Speicher-Schlüssel |
+| `file_name` | Originaldateiname |
+| `file_size` | Größe in Bytes |
+| `mime_type` | MIME-Typ |
+| `data` | BYTEA (Datenbank-Speicherung) |
+| `created_at` | |
+
 ---
 
-## Migrationen (36 Stück)
+## Migrationen (40 Stück)
 
 Sie liegen in `server-default/migrations/` und werden beim Server-Start automatisch (in Reihenfolge) angewendet.
 
 | Nr. | Inhalt (grob) |
 |-----|---------------|
 | 001–010 | Basis: users, sessions, school_settings, subjects, rooms, classes, timetable_entries, cancellations, substitutions, homework |
-| 011–020 | grades, absences, messages, notifications, audit_log, settings_tabs, custom_events, teacher_absences |
+| 011–020 | grades, absences, messages, notifications, audit_log, settings_tabs, custom_events, teacher_absences, school_settings erweitert |
 | 021–030 | conversations, conversation_members, chat_messages, resource_versions, user_preferences, integrations, API-Keys, Klasse am Timetable, teacher/room nullable, date_until |
-| 031–036 | Feinheiten, Indizes, Constraints (z.B. timetable_entries/class_id, api_keys/key_hash) |
+| 031–040 | Performance-Indizes, Chat-Anhänge (m31/m40), class_book_entries, resources, bookings, video_meetings, Constraints |
 
 > sqlx (v0.9) prüft Queries **zur Compilezeit** – Migrations-Schema und SQL müssen also exakt übereinstimmen, sonst baut das Projekt nicht.

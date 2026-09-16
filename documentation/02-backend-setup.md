@@ -112,7 +112,7 @@ UntisX-Server/
 │   ├── Cargo.toml          # serde, serde_json, chrono
 │   └── src/routs/…         # Typen je Bereich (auth, user, chats, …)
 ├── server-basis/           # Framework
-│   ├── src/server.rs       # Server Supertrait (30 Services)
+│   ├── src/server.rs       # Server Supertrait (35 Services)
 │   ├── src/lib.rs          # server<S: Server>() → Router
 │   ├── src/crypto.rs       # AES-256-GCM Middleware
 │   ├── src/validate.rs     # validate_user, validate_admin, …
@@ -122,7 +122,7 @@ UntisX-Server/
 │   ├── Dockerfile          # Multi-Stage Build
 │   ├── src/main.rs         # Binary: PgPool + broadcast + Migrationen
 │   ├── src/routs/…         # SQL-Implementierungen
-│   └── migrations/         # 36 SQL-Migrationen
+│   └── migrations/         # 40 SQL-Migrationen
 ├── Compose.yaml
 ├── .env.example
 └── README.md
