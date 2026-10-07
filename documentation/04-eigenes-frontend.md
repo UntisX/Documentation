@@ -10,7 +10,7 @@ UntisX ist eine klassische REST-API mit folgenden Regeln:
 
 1. **JSON** in/out – immer `snake_case`-Felder.
 2. **Auth** via `Authorization: Bearer <token>` Header (Token aus Login).
-3. **Verschlüsselung (optional, aber empfohlen):** Anfrage-Body und Antwort werden mit AES-256-GCM in ein `{"__enc": "..."}`-Envelope verpackt, wenn der Header `X-Enc: 1` gesetzt ist. Wenn das Backend `ENCRYPTION_SECRET` gesetzt hat, muss dein Client den Schlüssel ebenfalls kennen.
+3. **Verschlüsselung (optional, aber empfohlen):** Anfrage-Body und Antwort werden in ein `{"__enc": "..."}`-Envelope (AES-256-GCM) verpackt, wenn der Header `X-Enc: 1` gesetzt ist. Jeder Envelope ist über die **AAD** an den Request gebunden: `build_aad(Methode, Authorization-Wert, X-Req-Id)` – pro Request eine **frische `X-Req-Id`** senden (Serverseite prüft auf Replay, 300 s). Wenn das Backend `ENCRYPTION_SECRET` gesetzt hat, muss dein Client den Schlüssel ebenfalls kennen.
 4. **Fehler** kommen als `{"message": "..."}` mit passenden HTTP-Statuscodes.
 
 ---
@@ -61,7 +61,7 @@ async function createHomework(token, subjectId) {
 
 ## Variante B: Voll verschlüsselt (produktionssicher)
 
-Für den Produktionsbetrieb (ENCRYPTION_SECRET gesetzt) brauchst du AES-256-GCM:
+Für den Produktionsbetrieb (ENCRYPTION_SECRET gesetzt) brauchst du AES-256-GCM **mit AAD-Bindung**:
 
 ```js
 // crypto.js – AES-256-GCM Envelope wie im offiziellen Client
@@ -76,35 +76,40 @@ async function getKey() {
   return crypto.subtle.importKey('raw', digest, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 }
 
-export async function encryptJson(payload) {
+// AAD: Längenpräfixierte Konkatenation – muss byte-identisch zum Server sein!
+function buildAad(method, bearer, requestId) {
+  const parts = [method, bearer, requestId].map(p => enc.encode(p));
+  const out = new Uint8Array(parts.reduce((s, p) => s + 4 + p.length, 0));
+  const v = new DataView(out.buffer);
+  let o = 0;
+  for (const p of parts) { v.setUint32(o, p.length); o += 4; out.set(p, o); o += p.length; }
+  return out;
+}
+
+function newRequestId() {
+  return crypto.randomUUID().replace(/-/g, '');
+}
+
+export async function encryptJson(payload, aad) {
   const key = await getKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const buffer = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    enc.encode(JSON.stringify(payload))
-  );
+  const buffer = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: aad }, key, enc.encode(JSON.stringify(payload)));
   const combined = new Uint8Array(iv.length + buffer.byteLength);
   combined.set(iv);
   combined.set(new Uint8Array(buffer), iv.length);
   return { __enc: Buffer.from(combined).toString('base64url') };
 }
 
-export async function tryDecryptBody(text) {
-  try {
-    const parsed = JSON.parse(text);
-    if (parsed && typeof parsed.__enc === 'string') {
-      const key = await getKey();
-      const raw = Buffer.from(parsed.__enc, 'base64url');
-      const iv = raw.slice(0, 12);
-      const data = raw.slice(12);
-      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
-      return JSON.parse(dec.decode(plain));
-    }
-    return parsed;
-  } catch {
-    return JSON.parse(text);
+export async function decryptBody(text, aad) {
+  const parsed = JSON.parse(text);
+  if (parsed && typeof parsed.__enc === 'string') {
+    const key = await getKey();
+    const raw = Buffer.from(parsed.__enc, 'base64url');
+    const iv = raw.subarray(0, 12);
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv, additionalData: aad }, key, raw.subarray(12));
+    return JSON.parse(dec.decode(plain));
   }
+  return parsed;
 }
 ```
 
@@ -112,27 +117,34 @@ export async function tryDecryptBody(text) {
 
 ```js
 async function apiRequest(method, path, body, token) {
-  const headers = { ...(token && { Authorization: `Bearer ${token}` }) };
+  const bearer = token ? `Bearer ${token}` : '';
+  const requestId = newRequestId();               // keine Wiederholung abspielen!
+  const aad = buildAad(method, bearer, requestId);
+
+  const headers = { 'X-Req-Id': requestId };
+  if (token) headers['Authorization'] = bearer;
+
   let payload;
   if (body !== undefined) {
-    payload = await encryptJson(body);     // → { __enc: "..." }
+    payload = await encryptJson(body, aad);       // → { __enc: "..." }
     headers['Content-Type'] = 'application/json';
-    headers['X-Enc'] = '1';                // Server weiß: verschlüsselt!
+    headers['X-Enc'] = '1';                        // Server weiß: verschlüsselt!
+  } else {
+    headers['X-Enc'] = '1';                        // ohne Body: Antwort wird trotzdem verschlüsselt
   }
   const res = await fetch(path, {
-    method,
-    headers,
+    method, headers,
     body: payload ? JSON.stringify(payload) : undefined,
     cache: 'no-store',
   });
   const rawText = await res.text();
-  let data = rawText ? await tryDecryptBody(rawText) : null;
+  let data = rawText ? await decryptBody(rawText, aad) : null;
   if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
   return data;
 }
 ```
 
-> **Hinweis:** `X-Enc: 1` muss nur bei verschlüsselten Bodies gesetzt werden. Antworten werden automatisch erkannt (Envelope-Form).
+> **Hinweis:** `X-Enc: 1` wird gesetzt, wenn der Body ein echtes JSON ist (verschlüsselt) oder wenn kein Body existiert (damit die Antwort verschlüsselt ankommt). Nicht-JSON-Bodies (z. B. Blobs) bleiben plaintext und ohne `X-Enc`. Die Antwort wird immer mit dem AAD **der Anfrage** entschlüsselt.
 
 ---
 
@@ -185,7 +197,8 @@ async function login() {
 | Datumsformate | Datum `YYYY-MM-DD`, Zeit `HH:MM`, Timestamp ISO-8601 mit UTC. |
 | `role` exakt | `admin` / `teacher` / `student` – sonst Zugriffsfehler. |
 | Token-Probleme | Bei 401 mit ungültigem Token direkt auf Login-Seite leiten. |
-| SSE-Token | Bei `/events` Token als Query-Parameter `?token=…&enc=1` übergeben (SSE kann keine Header). |
+| SSE-Token | Bei `/events` das Token in den `Authorization`-Header geben (`openEncryptedStream`-Muster); `?token=…` funktioniert weiterhin als Fallback (kein Token-Leak in Logs). |
+| AAD & Reqs | Pro Request frische `X-Req-Id`; Antwort IMMER mit dem AAD der Anfrage entschlüsseln. |
 | Erst Admin bootstrapen | Vor allem: Der erste Login funktioniert erst nach `POST /bootstrap`. |
 | `users/{id}/activation-reset` | Neue Key-Route nutzen, um Schüler-Aktivierungslinks zu erzeugen. |
 

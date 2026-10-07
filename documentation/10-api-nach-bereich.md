@@ -301,7 +301,9 @@
 
 ```
 /events
-└── GET /events?token=…&enc=1   Echtzeit-Ereignisstrom
+└── GET /events?enc=1    Echtzeit-Ereignisstrom
+                         (Auth: Authorization-Header bevorzugt, ?token= Fallback;
+                          ?enc=1 = AES-256-GCM-verschlüsselte data:-Zeilen)
 ```
 
 → [Ausführlich](api/sse-events.md) · [Konzept](08-realtime-sse.md)
@@ -358,7 +360,7 @@
 │   └── GET    /video/join/{room}             Via geteilten Link beitreten
 └── /signals
     ├── POST   /video/signals/{room}          WebRTC-Signal weiterleiten
-    └── GET    /video/signals/stream/{room}   SSE-Signal-Stream
+    └── GET    /video/signals/stream/{room}   SSE-Signal-Stream (Auth per Authorization-Header, ?token= Fallback; optional ?enc=1)
 ```
 
 → [Ausführlich](api/video.md)

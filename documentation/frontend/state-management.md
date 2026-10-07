@@ -75,7 +75,7 @@
 
 | Hook | Beschreibung |
 |------|--------------|
-| `useRealtime` | Öffnet `EventSource('/api/events?token=…&enc=1')`, entschlüsselt Events, ruft `onEvent`. Backoff 1s→30s, max. 10 Versuche. |
+| `useRealtime` | Ruft `openEncryptedStream('/api/events?enc=1', token, …)` auf – fetch-basiert mit `Authorization`-Header, entschlüsselt Events, ruft `onEvent`. Backoff 1s→30s, max. 10 Versuche, `AbortController`. |
 | `useChatStream` | Gleiche Mechanik, aber `ChatEvent`-getypt (`kind`, `conversation_id`, `message_id`, `sender_id`). |
 
 ---

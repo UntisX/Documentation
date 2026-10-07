@@ -92,6 +92,10 @@ VITE_ENC_SECRET=MeinSichererLangerSchluessel123!
 
 > Ohne diesen Wert wird ein Standard-Entwicklungsschlüssel verwendet.
 
+**Seit dem Security-Update:**
+- Der offizielle Client verschlüsselt **automatisch** (Envelope + AAD = Methode + Bearer + `X-Req-Id`) und sendet pro Request eine frische `X-Req-Id` gegen Replays.
+- Die `curl`-Beispiele unten bleiben unverschlüsselt (ohne `X-Enc: 1`) – das ist weiterhin erlaubt, nur eben nicht AAD-gebunden. Für verschlüsselte Requests siehe [Eigenes Frontend verbinden](04-eigenes-frontend.md) (Variante B) bzw. [AES-Verschlüsselung](06-auth-sicherheit.md#7-payload-verschlüsselung-aes-256-gcm-aad-gebunden).
+
 ---
 
 ## 4. Erste Schritte mit der API

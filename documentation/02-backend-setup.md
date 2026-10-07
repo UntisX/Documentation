@@ -40,6 +40,13 @@ ENCRYPTION_SECRET=########           # ← Muss mit Frontend VITE_ENC_SECRET üb
 | `ENCRYPTION_SECRET` | **In Release ja** | Dev-Fallback | AES-256-GCM Ableitung |
 | `CORS_ORIGIN` | Nein | `localhost:5173,localhost:3000` | Erlaubte Origins, kommasepariert |
 
+### Security-Hinweise zur App-Level-Verschlüsselung
+
+- `ENCRYPTION_SECRET` muss identisch zu `VITE_ENC_SECRET` des Frontends sein (`x_enc`/Envelope-Schema).
+- Jeder verschlüsselte Request braucht eine **frische `X-Req-Id`**; doppelte IDs lehnt der Server 300 s lang ab (`400 Duplicate request identifier`).
+- Die CORS-Allowlist ist serverseitig fest auf die Methoden `GET/POST/PUT/PATCH/DELETE/OPTIONS` und die Header `content-type`, `authorization`, `x-enc`, `x-req-id` beschränkt (kein `*` mehr).
+- **Wire-Break:** Die Envelope-AAD-Bindung (Methode + Bearer + `X-Req-Id`) ist nicht rückwärtskompatibel – Client und Server müssen gemeinsam aktualisiert werden.
+
 ### Compose-only Variablen
 
 | Variable | Standard |
@@ -63,7 +70,7 @@ docker compose up --build -d
 
 - **Produktion:** `ports: 5432:5432` aus der Compose-Datei **entfernen**, damit die DB nicht von außen erreichbar ist.
 - Datenbank-Persistenz: Docker-Volume `database_data`.
-- Migrations: Der Server fährt bei Start alle 36 SQL-Migrationen selbst hoch (`sqlx::migrate!`).
+- Migrations: Der Server fährt bei Start alle 50 SQL-Migrationen selbst hoch (`sqlx::migrate!`).
 - Logs: `docker compose logs -f server`
 
 ---
@@ -122,7 +129,7 @@ UntisX-Server/
 │   ├── Dockerfile          # Multi-Stage Build
 │   ├── src/main.rs         # Binary: PgPool + broadcast + Migrationen
 │   ├── src/routs/…         # SQL-Implementierungen
-│   └── migrations/         # 40 SQL-Migrationen
+│   └── migrations/         # 50 SQL-Migrationen
 ├── Compose.yaml
 ├── .env.example
 └── README.md

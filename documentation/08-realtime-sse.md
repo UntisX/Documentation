@@ -9,21 +9,26 @@
 UntisX nutzt **Server-Sent Events (SSE)** – kein WebSocket. Eine SSE-Verbindung:
 
 - ist eine **unidirektionale** Verbindung (Server → Client)
-- liefert **automatische Reconnects** über die Browser-HTTP-Stack
-- kann **kein Authorization-Header** senden → Token muss als **Query-Parameter** übergeben werden
+- kann beliebige HTTP-Header senden, wenn sie per `fetch` (Stream-Reader) aufgebaut wird
+
+**Seit dem Security-Update:** Der offizielle Client baut SSE **fetch-basiert** auf (`api/realtime.ts`) und sendet das Token im **`Authorization`-Header** – nicht mehr im Query. Der Server bevorzugt den Header und akzeptiert `?token=` weiterhin als Fallback (Abwärtskompatibilität für Alt-Clients/Python).
 
 ---
 
 ## Endpunkt
 
 ```
-GET /events?token=<bearer-token>&enc=1
+GET /events?enc=1
+Authorization: Bearer <token>
 ```
 
-| Parameter | Wert | Zweck |
-|-----------|------|-------|
-| `token` | Dein Bearer-Token | Authentifizierung (Pflicht) |
-| `enc` | `1` (optional) | Die `data`-Zeilen sind AES-verschlüsselt |
+| Variante | Parameter / Header | Zweck |
+|----------|--------------------|-------|
+| `Authorization: Bearer <token>` | Header (bevorzugt) | Authentifizierung |
+| `?token=<bearer-token>` | Query (Fallback) | für Clients ohne Header-Support (natives `EventSource`, Python) |
+| `?enc=1` | Query, optional | die `data:`-Zeilen sind AES-256-GCM-verschlüsselt |
+
+**Sicherheitsvorteil des Headers:** Das Token landet nicht mehr in Browser-Historie, Proxy-Logs oder Server-Access-Logs.
 
 ---
 
@@ -72,66 +77,104 @@ Jede `data:`-Zeile ist ein JSON-Objekt:
 
 ---
 
-## Verwendung im Browser
+## Verwendung im Browser (offizieller Client)
 
-### Native `EventSource`
+### `openEncryptedStream` aus `api/realtime.ts` (empfohlen)
+
+```ts
+import { openEncryptedStream } from '../api/realtime';
+
+const token = localStorage.getItem('accessToken');
+
+// Token läuft im Authorization-Header, jede Zeile wird AAD-gebunden entschlüsselt
+const stream = openEncryptedStream('/api/events?enc=1', token, (plain) => {
+  const event = JSON.parse(plain);          // plain ist bereits entschlüsselt
+  handleEvent(event);
+}, () => console.log('verbunden'));
+
+// später:
+stream.close();
+```
+
+`openEncryptedStream` implementiert intern: fetch mit `Accept: text/event-stream` + `Authorization`-Header, `data:`-Zeilen-Parsing, Entschlüsselung je Zeile (`decryptSseData`), Backoff-Reconnect und `AbortController`-Close.
+
+### Variante ohne Verschlüsselung (unkritische Anzeigen)
 
 ```js
 const token = localStorage.getItem('accessToken');
 
-const es = new EventSource(`/api/events?token=${token}&enc=1`);
-
-es.onmessage = (evt) => {
-  const data = JSON.parse(evt.data);          // ohne Verschlüsselung
-  handleEvent(data);
-};
-
-es.onerror = () => {
-  // EventSource reconnectet automatisch.
-  // Nach mehreren Fehlern: Session prüfen, ggf. neu einloggen.
-};
+const res = await fetch('/api/events', {
+  headers: { Accept: 'text/event-stream', Authorization: `Bearer ${token}` },
+});
+const reader = res.body.getReader();
+// … `data:`-Zeilen aus dem Stream parsen, JSON.parse aufs Plain-Event
 ```
 
-### Mit Verschlüsselung (wie im offiziellen Client)
+### Native `EventSource` (nur mit Query-Fallback)
 
 ```js
 const es = new EventSource(`/api/events?token=${token}&enc=1`);
 
 es.onmessage = async (evt) => {
-  try {
-    const parsed = await tryDecryptBody(evt.data);   // Entschlüsselung per AES-256-GCM
-    handleEvent(parsed);
-  } catch (e) { /* Verschlüsselungsfehler ignorieren */ }
+  const data = JSON.parse(await decryptSseData(token, evt.data));  // AES-256-GCM, Token-AAD
+  handleEvent(data);
 };
+
+es.onerror = () => { /* EventSource reconnectet automatisch */ };
+es.close();   // beim Verlassen
 ```
 
 ---
 
-## Verwendung im Python-Backend/Dienst
+## Verwendung in Python / eigenen Diensten
 
 ```python
 import json, requests
 
 token = login()["token"]
-resp = requests.get(f"http://localhost:3000/events?token={token}", stream=True, timeout=600)
+
+# Bevorzugt: Authorization-Header
+resp = requests.get(
+    "http://localhost:3000/events?enc=1",
+    headers={"Authorization": f"Bearer {token}"},
+    stream=True, timeout=600,
+)
 
 for line in resp.iter_lines(decode_unicode=True):
     if line and line.startswith("data:"):
-        event = json.loads(line[5:])
+        data = line[5:]
+        if '"__enc"' in data:                     # verschlüsselt?
+            event = json.loads(decrypt_sse(data, token))   # eigene Decrypt + AAD-Implementierung
+        else:
+            event = json.loads(data)
         if event["kind"] == "message":
             print(f"Neue Nachricht von {event.get('sender_id')}")
 ```
+
+> Ohne `enc=1` kommen die Zeilen als Klartext-JSON – für Lese-Integrationen einfachste Variante und weiterhin erlaubt (Verschlüsselung ist opt-in pro Stream).
+
+---
+
+## Verschlüsselung der SSE-Zeilen (AAD)
+
+Jede verschlüsselte `data:`-Zeile ist ein einzelner Envelope `{"__enc": "…"}` – das gleiche Schema wie bei REST. Der AAD ist **token-gebunden** (kein Request-Id bei Streams):
+
+```
+AAD = build_aad("GET", "Bearer <token>", "")
+```
+
+⇒ Ein aufgezeichnetes Event kann nicht unter einer anderen Session entschlüsselt werden. Implementierung:
+- Client: `decryptSseData(token, text)` in `api/crypto.ts`
+- Server: `build_aad("GET", &format!("Bearer {token}"), "")` in `routs/events.rs` bzw. `routs/video.rs`
 
 ---
 
 ## Keep-Alive & Reconnect
 
 - Axum sendet automatisch **Keep-Alive-Pings** (Standard ~30s).
-- Browser `EventSource` reconnectet bei Verbindungsverlust automatisch.
-- Der offizielle Client (`hooks/useRealtime.ts`) macht **exponentielles Backoff**:
-  - Start: 1 Sekunde
-  - Maximum: 30 Sekunden
-  - Maximum 10 Versuche, dann Abbruch
+- `openEncryptedStream` macht bei Verbindungsverlust **exponentielles Backoff**:
+  - Start: 1 Sekunde, Maximum: 30 Sekunden, Maximum 10 Versuche, dann Abbruch.
+- Verwendet in: `useRealtime`, `useChatStream` (Layout/Chat), `VideoCallRoom` (Signal-Stream).
 
 ---
 
@@ -143,12 +186,13 @@ server-default::main
    ├── event_tx: broadcast::Sender<ChannelEvent>   (Kapazität 512)
    │
    ├── routs/events.rs
-   │   │  GET /events?token=… 
+   │   │  GET /events?enc=1
+   │   │  → Bearer aus Authorization-Header (Fallback: ?token=)
    │   │  → validate_user
    │   │  → event_tx.subscribe()
    │   │  → axum Sse stream
    │   │  → Filter: nur Events, deren target_user_ids den User enthält
-   │   │  → wenn enc=1: jedes Event mit AES-GCM verschlüsseln
+   │   │  → wenn enc=1: jedes Event mit AAD build_aad("GET","Bearer <token>","") verschlüsseln
    │   └─ KeepAlive::default()
    │
    └── routs/chats.rs (Beispiel-Auslöser)
@@ -171,4 +215,5 @@ server-default::main
 | Beim Verbindungsverlust nicht crashen | Ereignisse sind keine kritischen Daten – REST bleibt fallback |
 | Nach Login sofort verbinden | Nichts verpassen |
 | Events deduplizieren | Der Server kann Broadcasts nicht garantieren (z.B. bei >512 Events) |
+| Token lieber im `Authorization`-Header | Kein Leak in Historie/Logs; `?token=` nur Fallback |
 | `enc=1` nur mit korrektem Secret verwenden | Sonst unlesbarer Datensalat |

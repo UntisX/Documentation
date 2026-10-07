@@ -71,9 +71,22 @@ Liefert das Profil des aktuell eingeloggten Benutzers.
   "real_name": "Max Müller",
   "short_name": "MM",
   "role": "teacher",
-  "email": "max.mueller@schule.de"
+  "email": "max.mueller@schule.de",
+  "school_name": "Gymnasium Musterstadt",
+  "school_logo": "data:image/png;base64,iVBORw0KGgo..."
 }
 ```
+
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `id` | Number | User-ID |
+| `user_name` / `real_name` / `short_name` | String | Name(n) |
+| `role` | String | `admin` / `teacher` / `student` |
+| `email` | String, optional | E-Mail |
+| `school_name` | String, optional | Schulname (Branding; aus `school_settings`) |
+| `school_logo` | String, optional | Schul-Logo als **Data-URL**, leer/`null` = keins (Migration 050) |
+
+> Mit diesen beiden neuen Feldern können Login-, Setup- und Aktivierungsseiten die Schule schon **vor** dem ersten Voll-Login gebrandet zeigen.
 
 ### Fehler
 

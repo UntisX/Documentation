@@ -14,8 +14,8 @@
 | **HTTP** | Natives `fetch` über `api/client.ts` (kein axios) |
 | **State** | React Context + lokale Hooks (kein Redux/Zustand) |
 | **Styling** | `src/styles/global.css` (≈4300 Zeilen, CSS-Variablen, kein Framework) |
-| **Verschlüsselung** | AES-256-GCM via WebCrypto |
-| **Realtime** | SSE über 2 Hooks (`useRealtime`, `useChatStream`) |
+| **Verschlüsselung** | AES-256-GCM via WebCrypto, AAD-gebunden (Methode + Bearer + `X-Req-Id`), Anti-Replay |
+| **Realtime** | SSE über `api/realtime.ts` + 2 Hooks (`useRealtime`, `useChatStream`), Token im Authorization-Header |
 | **PDF** | `jspdf` + `qrcode` für Aktivierungsbriefe |
 
 ---
@@ -40,10 +40,11 @@ Das Frontend ist bewusst **fast ohne Abhängigkeiten** gebaut:
 ```
 Ein fetch-Wrapper (api/client.ts)
   ↕ AES-256-GCM (api/crypto.ts)
+  ↕ SSE-Streams (api/realtime.ts)
   ↕ Pfad-Mapping (api/endpoints.ts)
   ↕ mappers (api/mappers.ts)
 ↕
-   21 geteilte Komponenten
+   26 geteilte Komponenten
    30 Seiten
    3 Contexts + 2 Hooks
    1 globales CSS

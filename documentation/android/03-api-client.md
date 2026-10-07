@@ -136,7 +136,7 @@ fun openEventSource(fullUrl: String, listener: EventSourceListener): EventSource
 ```
 
 - Die URL wird aus `serverConfig.serverUrl` gebaut.
-- Genutzt wird sie aktuell **nur im Chat** (`MessagesScreen`), z. B. `GET /events?token=<JWT>`.
+- Genutzt wird sie aktuell **nur im Chat** (`MessagesScreen`), z. B. `GET /events?enc=1`. Der Server akzeptiert das Token bevorzugt im `Authorization`-Header (`?token=` nur Fallback) – neue Implementierungen sollten den Header schicken.
 - Events: `message`, `typing`, `message_deleted`, `chat_read`, `chat` (siehe [08-realtime-sse.md](../08-realtime-sse.md)).
 - **Fallback:** Läuft die SSE-Verbindung nicht, wechselt der Chat auf 5-Sekunden-Polling.
 - Verbindung lebt viewModel-scoped: Sie existiert nur solange der Messages-Screen aktiv ist.

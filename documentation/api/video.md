@@ -11,7 +11,7 @@
 | Auth | `Bearer <token>` |
 | Echtzeit | SSE `GET /video/signals/stream/{room}` |
 | Speicherung | Meetings in DB, Signale nur im RAM (Broadcast) |
-| Verschlüsselung | optional via `X-Enc: 1` Header |
+| Verschlüsselung | optional via `X-Enc: 1` Header / `enc=1` am Stream (Envelope, AAD-gebunden) |
 
 ---
 
@@ -163,7 +163,13 @@ WebRTC-Signalnachricht an alle Teilnehmer im Raum senden (Relay).
 
 SSE-Stream für WebRTC-Signale in einem bestimmten Raum.
 
-**Zugriff:** eingeloggt (Query-Parameter: `token`, optional `enc=1`)
+**Zugriff:** eingeloggt – Token bevorzugt im `Authorization`-Header (`Authorization: Bearer <token>`), Fallback als Query: `?token=…`. Optional `?enc=1` für verschlüsselte `data:`-Zeilen (AAD = `build_aad("GET", "Bearer <token>", "")`).
+
+**Beispiel (offizieller Client):**
+```
+GET /video/signals/stream/{room}?enc=1
+Authorization: Bearer <token>
+```
 
 **Event-Format:**
 ```
@@ -236,5 +242,6 @@ Teilnehmer A                    Backend                     Teilnehmer B
 - **Kein externer Jitsi-Server nötig:** Das Backend leitet WebRTC-Signale weiter. Die Nutzer können sich aber auch über einen externen Jitsi-Server verbinden (`jitsi_server` Feld).
 - **Keine Medien-Speicherung:** Audio/Video läuft Peer-to-Peer – das Backend sieht/ hört nichts mit.
 - **Raum-Token:** Wird aus `SHA-256(room_name:user_id)` abgeleitet und ist pro User unterschiedlich.
-- **SSE-Streaming:** Der Signal-Stream nutzt denselben Mechanismus wie `/events` (Broadcast-Channel, Kapazität 256).
+- **SSE-Streaming:** Der Signal-Stream nutzt denselben Mechanismus wie `/events` (Broadcast-Channel, Kapazität 256) und die gleiche verschlüsselte SSE-Authentifizierung (Bearer im Header, Query-Fallback).
+- **Signal-Verschlüsselung:** Bei `enc=1` werden die `data:`-Zeilen einzeln mit dem token-gebundenen AAD verschlüsselt – gleiche Handhabung wie `/events`.
 - **Kapazität:** Broadcast-Channel-Kapazität = 256. Bei mehr gleichzeitigen Teilnehmern können Pakete verloren gehen.

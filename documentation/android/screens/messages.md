@@ -36,7 +36,7 @@
 
 ## Echtzeit (SSE)
 
-- Verbindet sich über `ApiClient.openEventSource(...)` auf `GET /events?token=<JWT>`.
+- Verbindet sich über `ApiClient.openEventSource(...)` auf `GET /events?enc=1` (aktuell noch per Query-Token `?token=<JWT>`; der Server bevorzugt den `Authorization`-Header als Fallback-Akzeptanz – siehe [03-api-client.md](../03-api-client.md)).
 - Events: `message`, `typing`, `message_deleted`, `chat_read`, `chat`.
 - **Fallback:** 5-Sekunden-Polling (über `ChatRepository.getChatMessages`), wenn SSE nicht verfügbar.
 - Verbindung viewModel-scoped → endet beim Verlassen des Screens.

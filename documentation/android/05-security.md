@@ -10,7 +10,7 @@
 |-------|--------|
 | HTTPS/TLS | Erzwungen durch **lokale** Enforcement-Regeln, aber kein globales Verbot von Cleartext |
 | Token-Speicherung | DataStore Preferences (**nicht verschlüsselt**) |
-| Verschlüsselung der Payloads | **Keine** – reine JSON-Übertragung, kein AES/X-Enc wie im Web-Frontend |
+| Verschlüsselung der Payloads | **Keine** – reine JSON-Übertragung, kein AES/X-Enc wie im Web-Frontend (Server unterstützt verschlüsselte Envelopes, siehe [Verschlüsselung](../frontend/verschluesselung.md)) |
 | Header | `Authorization: Bearer <token>`, `Content-Type`, `X-Bootstrap-Token` (nur Bootstrap) |
 | Logging | `HttpLoggingInterceptor.Level.BODY` – auch in Release-Builds |
 | Network Security | Cleartext global erlaubt (`base-config cleartextTrafficPermitted="true"`) |
@@ -70,11 +70,11 @@ Keine Berechtigungen für Benachrichtigungen, Standort, Kamera, Speicher oder Ko
 | Man-in-the-Middle (HTTP) | Möglich (`cleartextTrafficPermitted=true`) | `base-config` auf `false`, nur lokale Domains erlauben |
 | Token-Leak durch Logs | Möglich (`Level.BODY`) | Release-Log-Level senken; sensitive Header filtern |
 | Token-Diebstahl auf Gerät | DataStore im Klartext | Keystore-gebundene Verschlüsselung |
-| Replay von Requests | Nicht adressiert | Kurzlebige Tokens / Refresh-Logik |
+| Replay von Requests | Server-seitig für **verschlüsselte** Requests abgesichert (`X-Req-Id`-Cache, 300 s); die Android-App sendet plaintext und nutzt es daher nicht | Payload-Verschlüsselung auch in der App einführen |
 | Deep-Link/Exported-Komponenten | nur `MainActivity` einzeln | Exported-Flags prüfen |
 
 ## Bereits vorhandene Schutzmechanismen
 
 - R8/ProGuard aktiv für Release-Builds (wacht z. B. verhindert Code-Inlining durch).
 - Minimale Berechtigungsfläche.
-- Token wird nur im `Authorization`-Header übertragen (nicht in der URL, Ausnahme: SSE nutzt `?token=<JWT>`).
+- Token wird im `Authorization`-Header übertragen – **auch für SSE**: Der Server akzeptiert das Token seit dem Security-Update in `.events`/`video/signals/stream/{room}` bevorzugt per `Authorization`-Header; `?token=<JWT>` ist nur noch der Abwärts-Fallback. Neue Integrations-Code sollte den Header verwenden (kein Token-Leak in Logs/Historie).

@@ -41,7 +41,7 @@
                            ▼
               ┌────────────────────────────┐
               │  PostgreSQL 17 (Docker)     │
-              │  - 40 Migrationen           │
+              │  - 50 Migrationen           │
               │  - 32 Tabellen              │
               └────────────────────────────┘
 ```
@@ -70,20 +70,23 @@ Das Backend ist absichtlich in drei Teile aufgeteilt (Git-Submodule):
 ## Der Anfrage-Ablauf im Detail
 
 ```
-1. Client → Server:  POST /api/auth/login  (Header: X-Enc: 1)
+1. Client → Server:  POST /api/auth/login  (Header: X-Enc: 1, X-Req-Id: <frische ID>)
 2. Vite-Proxy:       /api String entfernen → POST /auth/login
 3. axum-Router:      läuft durch Middleware-Stack
-   a. CORS-Layer
+   a. CORS-Layer (Methoden + Header auf Whitelist beschränkt)
    b. RequestBodyLimitLayer (16 MB)
    c. TimeoutLayer (30 Sek.)
-   d. encryption_middleware → AES-256-GCM entschlüsseln (wenn X-Enc: 1)
+   d. encryption_middleware:
+      → AAD = build_aad(Methode, Authorization-Wert, X-Req-Id)
+      → Anti-Replay: doppelte X-Req-Id in 300s → 400
+      → Body-Envelope entschlüsseln (wenn X-Enc: 1 + JSON)
 4. Handler `login<S>()`:
    - Validierung (validate_string für user_name/password)
    - argon2::verify_password gegen DB-Hash
    - 32 Zufallsbytes generieren → base64url Token
    - SHA-256 Hash in `sessions`-Tabelle speichern
    - Token im JSON-Body zurückgeben (wird automatisch verschlüsselt)
-5. Client:           entschlüsselt Antwort, speichert Token
+5. Client:           entschlüsselt Antwort mit dem Request-AAD, speichert Token
 ```
 
 ---
@@ -95,13 +98,14 @@ src/
 ├── main.tsx              → React-Root, Provider-Kette
 ├── App.tsx               → Routen-Definition
 ├── api/                  → Backend-Kommunikation
-│   ├── client.ts         → apiRequest()-Wrapper (Token, Verschlüsselung, Fehler)
+│   ├── client.ts         → apiRequest()-Wrapper (Token, AAD-Verschlüsselung, X-Req-Id, Fehler)
 │   ├── endpoints.ts      → Pfad-Mapping Frontend→Backend + API_ROOT
-│   ├── crypto.ts         → AES-256-GCM verschlüsseln/entschlüsseln
+│   ├── crypto.ts         → AES-256-GCM verschlüsseln/entschlüsseln (AAD-gebunden)
+│   ├── realtime.ts       → SSE-Stream (openEncryptedStream, Authorization-Header)
 │   └── mappers.ts        → API-Antwort → UI-Datenmodell
-├── components/           → Wiederverwendbare UI-Bausteine (22 Dateien)
+├── components/           → Wiederverwendbare UI-Bausteine (26 Dateien)
 ├── contexts/             → Auth, Theme, Toast (React Context)
-├── hooks/                → useRealtime, useChatStream (SSE)
+├── hooks/                → useRealtime, useChatStream (SSE via realtime.ts)
 ├── pages/                → 1 Datei pro Route (30 Dateien)
 ├── styles/global.css     → Komplette CSS (kein Framework)
 └── utils/                → format, navigation, pdfGenerator
@@ -114,8 +118,8 @@ src/
 | **Kein** Redux / Zustand | React Context + lokaler State pro Seite |
 | **Kein** axios | Natives `fetch` in `api/client.ts` |
 | API-Basis | Immer same-origin `/api` (Proxy entfernt Präfix) |
-| Verschlüsselung | AES-256-GCM, Schlüssel = SHA-256(`VITE_ENC_SECRET`) |
-| Realtime | `EventSource('/api/events?token=...&enc=1')` |
+| Verschlüsselung | AES-256-GCM, Key = SHA-256(`VITE_ENC_SECRET`), Envelope per AAD an Methode+Bearer+`X-Req-Id` gebunden |
+| Realtime | `openEncryptedStream('/api/events?enc=1', token, …)` (fetch + Authorization-Header) |
 | Persistenz | localStorage + Server via `/preferences` |
 
 ---
@@ -156,10 +160,10 @@ validate_api_key(...)     → Über X-Api-Key Header + Scopes
                         stream: data: {"kind":"message", ...}
 ```
 
-- Jeder Client hält eine offene SSE-Verbindung zu `/events`.
+- Jeder Client hält eine offene SSE-Verbindung zu `/events` (Auth per `Authorization`-Header, `?token=` nur Fallback).
 - Chat-Aktionen senden Events auf den Broadcast-Channel.
 - Der SSE-Handler filtert nach `target_user_ids` – nur relevante Empfänger erhalten das Update.
-- Bei `enc=1` wird jede `data:`-Zeile mit AES-256-GCM verschlüsselt.
+- Bei `enc=1` wird jede `data:`-Zeile AES-256-GCM-verschlüsselt; der AAD ist an das Token gebunden (`build_aad("GET", "Bearer <token>", "")`).
 
 ### Video-Signaling (zweiter Broadcast-Channel)
 
@@ -181,7 +185,7 @@ validate_api_key(...)     → Über X-Api-Key Header + Scopes
 ```
 
 - WebRTC-Signale werden **nicht** in der DB gespeichert – nur im RAM weitergeleitet.
-- Jeder Teilnehmer hält eine separate SSE-Verbindung zu `/video/signals/stream/{room}`.
+- Jeder Teilnehmer hält eine separate SSE-Verbindung zu `/video/signals/stream/{room}` (Token ebenfalls bevorzugt im `Authorization`-Header).
 - Nachrichten mit `to:`-Feld werden nur an den Ziel-User zugestellt, Broadcasts an alle aktiven Verbindungen im Raum.
 - Room-Token wird aus `SHA-256(room_name:user_id)` abgeleitet – jeder User hat seinen eigenen Token.
 

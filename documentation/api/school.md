@@ -179,12 +179,20 @@ Gleiche Felder.
 ```json
 {
   "school_name": "Gymnasium Musterstadt",
+  "school_logo": "data:image/png;base64,iVBORw0KGgo...",
   "timezone": "Europe/Berlin",
   "address": "Musterstraße 1, 12345 Musterstadt",
   "phone": "0123 456789",
   "email": "info@schule.de"
 }
 ```
+
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `school_name` | string | Name der Schule (wird für Branding/Titel verwendet) |
+| `school_logo` | string | Schul-Logo als **Data-URL** (z. B. `data:image/png;base64,...`), leer = kein Logo (Migration 050) |
+| `timezone` | string | Zeitzone |
+| `address` / `phone` / `email` | string | Kontaktdaten |
 
 ### GET /schools/self
 
@@ -197,9 +205,12 @@ Partielles Update – nur gesetzte Felder werden geändert:
 ```json
 {
   "school_name": "Gymnasium Musterstadt",
+  "school_logo": "data:image/png;base64,iVBORw0KGgo...",
   "timezone": "Europe/Berlin"
 }
 ```
+
+> `school_logo` löschen = Wert `""` (leerer String) senden. Das offizielle Frontend nutzt den Wert u. a. für `BrandLogo` + Favicon (Client-seitig gecacht in localStorage unter `untisx_school_logo`).
 
 ### Response
 

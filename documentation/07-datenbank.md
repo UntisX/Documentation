@@ -1,6 +1,6 @@
 # Datenbank-Schema
 
-> Das komplette PostgreSQL-Schema (40 Migrationen, 32 Tabellen) der UntisX-Server-Datenbank.
+> Das komplette PostgreSQL-Schema (50 Migrationen, 32 Tabellen) der UntisX-Server-Datenbank.
 
 ---
 
@@ -116,6 +116,7 @@
 |--------|---------|
 | `id` | SMALLINT PK, immer `1` |
 | `school_name` | |
+| `school_logo` | Data-URL des Schul-Logos, eingeführt in Migration 050 |
 | `timezone` | |
 | `address` | eingeführt in Migration 020 |
 | `phone` | Migration 020 |
@@ -468,15 +469,16 @@
 
 ---
 
-## Migrationen (40 Stück)
+## Migrationen (50 Stück)
 
 Sie liegen in `server-default/migrations/` und werden beim Server-Start automatisch (in Reihenfolge) angewendet.
 
 | Nr. | Inhalt (grob) |
 |-----|---------------|
-| 001–010 | Basis: users, sessions, school_settings, subjects, rooms, classes, timetable_entries, cancellations, substitutions, homework |
-| 011–020 | grades, absences, messages, notifications, audit_log, settings_tabs, custom_events, teacher_absences, school_settings erweitert |
-| 021–030 | conversations, conversation_members, chat_messages, resource_versions, user_preferences, integrations, API-Keys, Klasse am Timetable, teacher/room nullable, date_until |
-| 031–040 | Performance-Indizes, Chat-Anhänge (m31/m40), class_book_entries, resources, bookings, video_meetings, Constraints |
+| 001–010 | users, sessions, resource_versions, school_settings, bell_schedule, subjects, rooms, classes, timetable_entries, cancellations |
+| 011–020 | substitutions, teacher_absences, grades, absences, homework, messages, custom_events, notifications, audit_log, settings-Spalten (address/phone/email) |
+| 021–030 | settings_tabs, Stammdaten-Seed, api_keys, class_id→timetable/users, Klassenleitungen/Stellvertreter, admin-tabs, teacher/room nullable, homework date_until |
+| 031–040 | chats, integrations (moodle), user_preferences, tutorial_seen, api_key_security, performance_indexes, class_book, resources + bookings, video_meetings, chat_attachments |
+| 041–050 | preferences-Favorites + Sprache, moodle, cloud + position/crop, announcements, chat_v2, **school_logo** |
 
 > sqlx (v0.9) prüft Queries **zur Compilezeit** – Migrations-Schema und SQL müssen also exakt übereinstimmen, sonst baut das Projekt nicht.

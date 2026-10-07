@@ -9,6 +9,7 @@
 | Komponente | Zweck |
 |------------|-------|
 | `Layout` | App-Shell für eingeloggte Seiten |
+| `BrandLogo` | Schul-Logo (Data-URL) bzw. Produkt-Logo + Favicon-Branding |
 | `Sidebar` | Rollenbasierte Navigation |
 | `Breadcrumb` | Brotkrumen |
 | `ProtectedRoute` | Route-Guard |
@@ -179,3 +180,12 @@ Persistiert `tutorial_seen` via `GET/PUT /preferences` (Fallback localStorage).
 - Hervorhebung der Treffer
 - Tastennavigation: ↑ / ↓ / Enter / Esc
 - Recent-Searches: `untisx_recent_searches`
+
+---
+
+## BrandLogo
+
+- Zeigt das **Schul-Logo** als `data:`-URL (aus `/auth/me`/`/school/settings` Feld `school_logo`) bzw. den Produktnamen `UntisX`.
+- Zieht vor dem Login (Login, Setup, Aktivierung, Terminal) aus dem **localStorage-Cache** (`untisx_school_logo`, gesetzt von `utils/branding.ts`).
+- Wird u. a. als **Favicon** gebrandet, sobald ein Schul-Logo vorhanden ist.
+- Helper: `branding.ts` (`brandName`, `brandTitle`, `brandLogo`, `storeSchoolName/readSchoolName`, `storeSchoolLogo/readSchoolLogo`).

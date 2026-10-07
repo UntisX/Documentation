@@ -228,7 +228,7 @@ Markiert alle Nachrichten bis einschließlich `message_id` als gelesen. Löst `k
 
 ## Frontend-Integration
 
-Die `hooks/useChatStream.ts` öffnet eine zweite SSE-Verbindung (`EventSource('/api/events?token=…&enc=1')`) und entpackt Events wie:
+Die `hooks/useChatStream.ts` hält eine zweite SSE-Verbindung (`openEncryptedStream('/api/events?enc=1', token, …)` – fetch-basiert, Token im `Authorization`-Header) und entpackt Events wie:
 
 ```ts
 {

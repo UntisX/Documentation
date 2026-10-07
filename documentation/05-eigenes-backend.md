@@ -165,12 +165,19 @@ token = requests.post("http://localhost:3000/auth/login", json={
     "user_name": "admin", "password": "..."
 }).json()["token"]
 
-sse_url = f"http://localhost:3000/events?token={token}"
+# Token im Authorization-Header (bevorzugt) – ?token= funktioniert weiterhin als Fallback
+sse_url = "http://localhost:3000/events?enc=1"
+headers = {"Authorization": f"Bearer {token}", "Accept": "text/event-stream"}
 
-stream = requests.get(sse_url, stream=True, timeout=300)
+stream = requests.get(sse_url, headers=headers, stream=True, timeout=300)
 for line in stream.iter_lines():
     if line and line.startswith(b"data:"):
-        event = json.loads(line[5:])
+        data = line[5:]
+        if b'"__enc"' in data:
+            # verschlüsselt: decrypt mit build_aad("GET", f"Bearer {token}", "")
+            event = json.loads(decrypt_sse(data, token))
+        else:
+            event = json.loads(data)
         print(event["kind"], event.get("title"))
         # kinds: message, message_deleted, chat, typing, chat_read, ...
 ```
@@ -184,7 +191,7 @@ for line in stream.iter_lines():
 3. **Timeout:** Alle Requests haben ein 30s-Timeout, Maximale Body-Größe 16 MB.
 4. **Rate-Limits:** Der Server hat KEINE Rate-Limits (nur globale Limits: Timeout, Body-Limit).
 5. **Ids:** Es gibt keine UUIDs – nur sequentielle BIGINT-IDs (`id: 1, 2, 3, …`).
-6. **Verschlüsselte Anfragen:** Wenn du Bodies verschlüsselst (`X-Enc: 1`), brauchst du denselben `ENCRYPTION_SECRET`. Sonst liefert der Server `400 Bad Request`.
+6. **Verschlüsselte Anfragen:** Wenn du Bodies verschlüsselst (`X-Enc: 1`), brauchst du denselben `ENCRYPTION_SECRET` **und** ein byte-identisches AAD-Schema: `build_aad(Methode, kompletter Authorization-Wert, X-Req-Id)`. Pro Request eine **frische `X-Req-Id`** senden – der Server lehnt doppelte IDs 300 s lang ab (`400 Duplicate request identifier`). Sonst `400 Could not decrypt request body`.
 
 ---
 
@@ -192,7 +199,7 @@ for line in stream.iter_lines():
 
 | Code | Bedeutung | Typische Ursache |
 |------|-----------|------------------|
-| `400` | Formatfehler | Falsche Felder, ungültiger Body, falsche Zeitangaben |
+| `400` | Formatfehler | Falsche Felder, ungültiger Body, falsche Zeitangaben, doppelte `X-Req-Id`, unentschlüsselbarer Envelope |
 | `401` | Nicht authentifiziert | Fehlender/abgelaufener Token |
 | `403` | Verboten | Nicht die nötige Rolle (z.B. Schüler will Fächer anlegen) |
 | `404` | Nicht gefunden | Falscher Pfad oder ID |

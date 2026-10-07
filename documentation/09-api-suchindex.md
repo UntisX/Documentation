@@ -28,7 +28,7 @@
 | 8 | `GET /chats/{id}` | Chat-Details | eingeloggt | [chats](api/chats.md) |
 | 9 | `GET /chats/{id}/messages` | Nachrichten eines Chats | eingeloggt | [chats](api/chats.md) |
 | 10 | `GET /custom-events` | Eigene Kalendereinträge | eingeloggt | [custom-events](api/custom-events.md) |
-| 11 | `GET /events` | SSE-Echtzeitstream | eingeloggt | [sse-events](api/sse-events.md) |
+| 11 | `GET /events` | SSE-Echtzeitstream (Auth: Authorization-Header bzw. `?token=` Fallback; `?enc=1` = verschlüsselte Zeilen) | eingeloggt | [sse-events](api/sse-events.md) |
 | 12 | `GET /external/bell-schedule` | Klingelzeiten (extern) | API-Key | [external](api/external.md) |
 | 13 | `GET /external/classes` | Klassen (extern) | API-Key | [external](api/external.md) |
 | 14 | `GET /external/rooms` | Räume (extern) | API-Key | [external](api/external.md) |

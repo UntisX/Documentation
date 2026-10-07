@@ -120,7 +120,8 @@ Suche nach einem spezifischen Endpunkt oder Begriff:
 | Backend | Rust, Axum 0.8, Tokio |
 | Datenbank | PostgreSQL 17 via SQLx |
 | Auth | Opaque Bearer Tokens (SHA-256 gehasht in DB) |
-| Verschlüsselung | AES-256-GCM (WebCrypto Frontend / aes-gcm Rust) |
-| Realtime | Server-Sent Events (SSE) |
+| Verschlüsselung | AES-256-GCM (WebCrypto Frontend / aes-gcm Rust), AAD-gebunden an Methode + Bearer + `X-Req-Id` |
+| Replay-Schutz | frische `X-Req-Id` pro Request, Server-Cache 300 s (Cap 50 000), doppelte ID → `400` |
+| Realtime | Server-Sent Events (SSE), Token im `Authorization`-Header (`?token=` Fallback) |
 | Passwörter | Argon2 Hashing |
 | Deployment | Docker Compose (Multi-Stage) |

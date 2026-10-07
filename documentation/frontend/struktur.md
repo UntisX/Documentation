@@ -21,11 +21,12 @@ client/
     ├── App.tsx                Routen-Definition
     ├── vite-env.d.ts          Env-Typing (VITE_ENC_SECRET)
     ├── api/
-    │   ├── client.ts          fetch-Wrapper (Auth, Verschlüsselung, Fehler)
+    │   ├── client.ts          fetch-Wrapper (Auth, AAD-Verschlüsselung, X-Req-Id, Fehler)
     │   ├── endpoints.ts       Pfad-Mapping-Tabelle + API_ROOT
-    │   ├── crypto.ts          AES-256-GCM verschlüsseln/entschlüsseln
+    │   ├── crypto.ts          AES-256-GCM verschlüsseln/entschlüsseln (buildAad, encryptJson, decryptBody, decryptSseData)
+    │   ├── realtime.ts        fetch-basierter SSE-Stream (openEncryptedStream, Authorization-Header)
     │   └── mappers.ts         API-Antwort → UI-Objekte
-    ├── components/            Wiederverwendbare UI-Bausteine (21 Dateien)
+    ├── components/            Wiederverwendbare UI-Bausteine (26 Dateien)
     ├── contexts/              AuthContext, ThemeContext, ToastContext
     ├── hooks/                 useRealtime, useChatStream (SSE)
     ├── pages/                 30 Seiten (1 je Route)
@@ -42,9 +43,10 @@ client/
 
 | Datei | Zweck |
 |-------|-------|
-| `client.ts` | `apiRequest<T>(endpoint, options)` – setzt Token, verschlüsselt, wirft `ApiError`, 401-Redirect |
+| `client.ts` | `apiRequest<T>(endpoint, options)` – setzt Token, `X-Req-Id`, verschlüsselt (AAD), wirft `ApiError`, 401-Redirect |
 | `endpoints.ts` | `API_ROOT='/api'` + `ENDPOINT_MAP` (Frontend-Pfad → Server-Pfad) + `resolveEndpoint()` |
-| `crypto.ts` | `encryptJson`, `tryDecryptBody`, `tryDecryptSseData` |
+| `crypto.ts` | `buildAad`, `newRequestId`, `encryptJson`, `decryptEnvelope`, `decryptBody`, `decryptSseData`, `encryptionAvailable` |
+| `realtime.ts` | `openEncryptedStream(url, token, onData, onOpen?)` – SSE per fetch + `Authorization`-Header, Backoff-Reconnect |
 | `mappers.ts` | `mapUser`, `mapGrade`, … (snake_case → camelCase) |
 
 ---
@@ -54,6 +56,7 @@ client/
 | Datei | Zweck |
 |-------|-------|
 | `Layout.tsx` | App-Shell: Sidebar, Breadcrumb, SearchOverlay, SSE-Subscription, Outlet |
+| `BrandLogo.tsx` | Schul- oder Produkt-Logo (Data-URL aus `school_logo` bzw. Cache); wird auch als Favicon genutzt |
 | `Sidebar.tsx` | Rollen-basierte Navigation (lädt `GET /settings/tabs`) |
 | `ErrorBoundary.tsx` | Render-Fehler → freundlicher Reload-Screen |
 | `ProtectedRoute.tsx` | Guard: lädt, gegen /login redirectet, rollen-geprüft |
@@ -86,7 +89,7 @@ client/
 
 | Hook | Zweck |
 |------|-------|
-| `useRealtime.ts` | Generische SSE-Verbindung `/api/events?token=…&enc=1` + Backoff-Reconnect |
+| `useRealtime.ts` | Generische SSE-Verbindung `/api/events?enc=1` via `openEncryptedStream` (Token im Authorization-Header) + Backoff-Reconnect |
 | `useChatStream.ts` | Wie oben, aber `ChatEvent`-getypt (kind, conversation_id, …) |
 
 ---
@@ -134,6 +137,7 @@ client/
 |-------|-------|
 | `format.ts` | Deutsche Fehlermeldungen/Datumsformatierung |
 | `navigation.ts` | Startpfad pro Rolle |
+| `branding.ts` | Schul-Branding: `brandName/brandTitle/brandLogo`, localStorage-Cache `untisx_school_brand`/`untisx_school_logo` |
 | `pdfGenerator.ts` | Aktivierungsbrief als PDF (jsPDF + QR-Code) |
 
 ---

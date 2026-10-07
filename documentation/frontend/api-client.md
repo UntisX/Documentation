@@ -16,13 +16,19 @@ const data = await apiRequest<User>('/users', { method: 'GET' });
 fetch('/api/users', {
   headers: {
     Authorization: 'Bearer <token>',  // falls Token vorhanden
-    'X-Enc': '1',                     // falls Body verschlüsselt wird
+    'X-Req-Id': '<frische Request-ID>', // AAD + Anti-Replay
+    'X-Enc': '1',                     // falls Body verschlüsselt wird / Antwort verschlüsselt sein soll
     'Content-Type': 'application/json'
   },
   body: '{"__enc":"...}'               // verschlüsseltes JSON
   cache: 'no-store'
 })
 ```
+
+Die drei Zusammenarbeit (detailliert in [Verschlüsselung](verschluesselung.md)):
+- **Auth:** `Authorization: Bearer <token>`.
+- **AAD:** „Methode + kompletter Bearer + `X-Req-Id`" werden byte-identisch zum Backend in `buildAad()` verrechnet und binden Envelope an diesen einen Request.
+- **Replay-Schutz:** Jede Request-ID wird serverseitig 300 s lang auf Duplikate geprüft → doppelte ID = `400 Duplicate request identifier`.
 
 ---
 
@@ -102,9 +108,15 @@ class ApiError extends Error {
 
 | Funktion | Verhalten |
 |----------|-----------|
-| `encryptJson(payload)` | body → `{__enc: ...}`, Header `X-Enc: 1` |
-| `tryDecryptBody(text)` | response → automatisch entschlüsseln falls Envelope |
-| `tryDecryptSseData(data)` | SSE-`data:`-Zeile → entschlüsseln falls Envelope |
+| `newRequestId()` | frische Request-ID für `X-Req-Id` |
+| `buildAad(method, bearer, requestId)` | AAD-Bytes (Methode + Bearer + Req-Id), byte-identisch zum Backend |
+| `encryptJson(payload, aad)` | body → `{__enc: ...}`, Header `X-Enc: 1` |
+| `decryptBody(text, aad)` | response → automatisch entschlüsseln falls Envelope; wirft bei Fehlschlag |
+| `decryptSseData(token, text)` | SSE-`data:`-Zeile → mit Token-AAD entschlüsseln |
+
+- `X-Enc` wird gesetzt, wenn der Body ein echtes JSON ist (verschlüsselt) **oder** kein Body vorliegt (damit die Antwort verschlüsselt wird). Nicht-JSON-Bodies bleiben plaintext ohne `X-Enc`.
+- Ohne WebCrypto: einmalige Warnung + Plaintext-Fallback.
+- „Ungültige verschlüsselte Antwort" (ApiError) = Envelope ließ sich nicht authentisieren.
 
 Details: [Verschlüsselung](verschluesselung.md)
 
@@ -112,13 +124,16 @@ Details: [Verschlüsselung](verschluesselung.md)
 
 ## 6. SSE-Verbindung
 
+Die SSE-Strecke läuft seit dem Security-Update über **`api/realtime.ts`** (`openEncryptedStream`) statt `new EventSource`:
+
 ```ts
-new EventSource(`/api/events?token=${localStorage.getItem('accessToken')}&enc=1`)
+openEncryptedStream('/api/events?enc=1', token, onData, onOpen?)
 ```
 
-- **Kein Authorization-Header möglich** → Token im Query-Parameter.
-- Backoff-Reconnect: 1s → max 30s, max 10 Versuche.
-- Jede `data:`-Zeile wird ggf. entschlüsselt.
+- **Token im `Authorization`-Header** (fetch-basiert) – nicht mehr im Query (`?token=` nur noch Server-Fallback für Alt-Clients).
+- Jede `data:`-Zeile wird mit token-gebundenem AAD entschlüsselt (`decryptSseData`).
+- Backoff-Reconnect: 1s → max 30s, max 10 Versuche; `close()` beendet den Stream.
+- Genutzt in: `useRealtime`, `useChatStream` (beide `/api/events?enc=1`) und `VideoCallRoom` (`/api/video/signals/stream/{room}?enc=1`).
 
 ---
 

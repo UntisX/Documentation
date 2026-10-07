@@ -7,11 +7,12 @@
 ## Endpunkt
 
 ```
-GET /events?token=<bearer-token>&enc=1
+GET /events?enc=1
+Authorization: Bearer <token>
 ```
 
-- **`token`**: Pflicht, dein Bearer-Token (Authentifizierung). SSE kann keine `Authorization`-Header setzen.
-- **`enc=1`**: optional – die `data:`-Zeilen sind AES-256-GCM-verschlüsselt (Envelope-Format).
+- **Authentifizierung:** Bearer-Token bevorzugt im **`Authorization`-Header**. Fallback (Alt-Clients, natives `EventSource`, Python): `GET /events?token=<bearer-token>`.
+- **`enc=1`**: optional – die `data:`-Zeilen sind AES-256-GCM-verschlüsselt (Envelope-Format, AAD = `build_aad("GET", "Bearer <token>", "")`).
 
 ### Response (200, Streaming)
 
@@ -20,6 +21,8 @@ data: {"kind":"message","title":"Neue Nachricht","description":"...",...}
 
 data: {"kind":"substitution","title":"Neue Vertretung",...}
 ```
+
+> Mit `enc=1` ist jede `data:`-Zeile stattdessen ein `{"__enc":"..."}`-Envelope – pro Zeile einzeln verschlüsselt.
 
 ---
 
@@ -56,10 +59,11 @@ data: {"kind":"substitution","title":"Neue Vertretung",...}
 
 ## Verbindungs-Parameter auf einen Blick
 
-| Parameter | Wert | Beschreibung |
-|-----------|------|--------------|
-| `token` | `string` | Pflicht – Bearer-Token als Query-Parameter |
-| `enc` | `1` | Optionale Ende-zu-Ende-Verschlüsselung |
+| Parameter / Header | Wert | Beschreibung |
+|----------|------|--------------|
+| `Authorization` | `Bearer <token>` | Bevorzugte Authentifizierung (kein Leak in Logs/Historie) |
+| `token` (Query) | `string` | Pflicht-Fallback (Alt-Clients ohne Header-Support) |
+| `enc` (Query) | `1` | Optionale Verschlüsselung der `data:`-Zeilen |
 
 ---
 

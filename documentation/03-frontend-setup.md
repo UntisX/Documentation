@@ -67,7 +67,7 @@ Konkretes Beispiel:
 |-----------------|------------|-----------------|
 | `GET /api/users` | `GET /users` | `/users` |
 | `POST /api/auth/login` | `POST /auth/login` | `/auth/login` |
-| `GET /api/events?token=…` | `GET /events?token=…` | `/events` |
+| `GET /api/events?enc=1` (Auth per `Authorization`-Header) | `GET /events?enc=1` | `/events` |
 
 ### In Produktion
 

@@ -13,7 +13,8 @@
 | **X-Bootstrap-Token** | Einmalige Auth | `POST /bootstrap` |
 | **Argon2** | Passwort-Hashing | Login / Aktivierung |
 | **SHA-256** | Token-/Key-Hashing | DB-Speicherung (kein Klartext) |
-| **AES-256-GCM** | Payload-Verschlüsselung | Anfragen + Antworten (optional) |
+| **AES-256-GCM + AAD** | Payload-Verschlüsselung | Anfragen + Antworten (Envelope, AAD-gebunden) |
+| **`X-Req-Id` + Anti-Replay** | Replay-Schutz | Doppelte Request-ID in 300 s → `400` |
 
 ---
 
@@ -200,34 +201,47 @@ X-Api-Key: untisx_VGhpcyAgaXMgYSBzZWNyZXQ...
 
 ---
 
-## 7. Payload-Verschlüsselung (AES-256-GCM)
+## 7. Payload-Verschlüsselung (AES-256-GCM, AAD-gebunden)
 
 ### Prinzip
 
-Alle JSON-Bodies (Requests UND Responses) können transparent verschlüsselt werden:
+Alle JSON-Bodies (Requests UND Responses) werden transparent als Envelope übertragen. Jeder Envelope ist gegen den **Request-Kontext** gebunden:
 
 ```
+AAD = build_aad(Methode, kompletter Authorization-Wert, X-Req-Id)
+    = Längenpräfixierte (u32BE) Konkatenation der drei Teile
+
 Klartext JSON
    │
    ▼
-crypto.subtle.encrypt (key = SHA-256(ENCRYPTION_SECRET), iv = 12 Zufallsbytes)
+crypto.subtle.encrypt(key = SHA-256(ENCRYPTION_SECRET), iv = 12 Zufallsbytes, additionalData = AAD)
    │
    ▼
 Envelope: { "__enc": base64url(iv ‖ ciphertext ‖ authTag) }
    │
-   ▼  Header "X-Enc: 1" (nur Request)
+   ▼  Header "X-Enc: 1" + "X-Req-Id: <frische ID>"
    ▼
-Server -> encryption_middleware: entschlüsselt (wenn Header gesetzt) / verschlüsselt (wenn X-Enc gesetzt)
+Server -> encryption_middleware: entschlüsselt (wenn X-Enc) / verschlüsselt Antwort (wenn X-Enc)
 ```
+
+### Was das bringt
+
+- **Kontextbindung:** Ein aufgezeichneter Envelope kann weder auf eine andere Methode, eine andere Session/Token noch eine andere Request-ID verschoben werden – er lässt sich dort nicht mehr entschlüsseln.
+- **Anti-Replay:** Der Server merkt sich jede `X-Req-Id` für **300 s** (Cache-Cap 50 000, TTL-Prune). Eine doppelte ID → `400 Duplicate request identifier`. Damit kann ein Replay-Angriff (gleicher verschlüsselter Request erneut abspielen) den Server nicht zweimal ausführen.
+- **Kein Token-Leak in URLs:** Der offizielle Client überträgt SSE-Tokens im `Authorization`-Header statt im Query.
 
 ### Middleware-Verhalten (server-basis/src/crypto.rs)
 
 | Bedingung | Verhalten |
 |-----------|-----------|
-| Request mit `X-Enc: 1` | Body-Envelope wird entschlüsselt und als JSON-Parsefähig weitergereicht |
-| Request ohne `X-Enc` | Klartext wie normal verarbeitet |
-| Response-Antwort | Wird automatisch in Envelope gewickelt, wenn der Request verschlüsselt kam (Kontext) |
-| Health/`/events` | SSE-Daten werden einzeln verschlüsselt sobald `enc=1` als Query-Param |
+| Request mit `X-Enc: 1` + JSON-Body | Body-Envelope wird mit Request-AAD entschlüsselt und als JSON weitergereicht |
+| Request mit `X-Enc: 1` + leerem Body | Skip (nur Antwortpfad aktiv) |
+| Request mit `X-Enc: 1` + doppelter `X-Req-Id` | `400 Duplicate request identifier` |
+| Request ohne `X-Enc` | Klartext wie normal verarbeitet (Abwärtskompatibilität) |
+| Response auf `X-Enc`-Request | JSON-Antwort wird mit dem **Request-AAD** verschlüsselt; leere Bodies → `{"__enc": <Envelope von {}>}` |
+| Nicht entschlüsselbarer Body | `400 Could not decrypt request body` |
+| Nicht verschlüsselbare Antwort | `500 Encryption failed` |
+| SSE (`/events`, `/video/signals/stream/…`) | jede `data:`-Zeile einzeln verschlüsselt sobald `enc=1` – AAD = `build_aad("GET", "Bearer <token>", "")` |
 
 ### Schlüssel-Ableitung (muss auf beiden Seiten identisch sein!)
 
@@ -238,21 +252,60 @@ VITE_ENC_SECRET == ENCRYPTION_SECRET   // Frontend: VITE_ENC_SECRET
 
 Dev-Fallback (wenn nichts gesetzt): `UntisX-2026-AppLevel-Encryption-Secret-7f4c9a2b`
 
+### build_aad (muss byte-identisch auf beiden Seiten implementiert sein)
+
+```
+build_aad(method, bearer, request_id):
+  out = []
+  für jeden Teil p in [method, bearer, request_id]:
+    out += u32_BE(len(p))            # 4 Bytes Big-Endian
+    out += utf8(p)
+  return out
+```
+
+- **method:** exakt wie übertragen, z.B. `"POST"` (Großschreibung).
+- **bearer:** der **komplette** `Authorization`-Wert inkl. `"Bearer "` – leer wenn kein Token.
+- **request_id:** Wert des `X-Req-Id`-Headers; bei SSE-Streams die leere Zeichenkette `""`.
+- Der Pfad ist **nicht** Teil der AAD (Proxy-Präfix-Unsicherheit), Methoden+Bearer+ID binden ausreichend.
+
 ### Beispiel (manuell, Node.js)
 
 ```js
 const secret = 'MeinGeheimerSchluessel';
 const key = await crypto.subtle.importKey('raw', await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret)), {name:'AES-GCM'}, false, ['encrypt','decrypt']);
 
-// Verschlüsseln
+function buildAad(method, bearer, id) {
+  const enc = new TextEncoder();
+  const parts = [method, bearer, id].map(p => enc.encode(p));
+  const out = new Uint8Array(parts.reduce((s,p)=>s+4+p.length,0));
+  const v = new DataView(out.buffer);
+  let o = 0;
+  for (const p of parts) { v.setUint32(o, p.length); o+=4; out.set(p,o); o+=p.length; }
+  return out;
+}
+
+const aad = buildAad('POST', 'Bearer meinToken', 'req-123');
+
+// Verschlüsseln (Payload als Buffer)
 const iv = crypto.getRandomValues(new Uint8Array(12));
-const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, new TextEncoder().encode(JSON.stringify({hello:'welt'})));
+const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv, additionalData: aad}, key, Buffer.from(JSON.stringify({hello:'welt'})));
 const envelope = {__enc: Buffer.concat([iv, ct]).toString('base64url')};
 
 // Entschlüsseln
 const raw = Buffer.from(envelope.__enc, 'base64url');
-const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv: raw.subarray(0,12)}, key, raw.subarray(12));
+const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv: raw.subarray(0,12), additionalData: aad}, key, raw.subarray(12));
 console.log(JSON.parse(new TextDecoder().decode(plain)));
+```
+
+> **Hinweis:** Das alte Format (ohne `additionalData`, ohne `X-Req-Id`) ist **nicht** mehr kompatibel – es handelt sich um einen Wire-Break. Client und Server gemeinsam ausrollen!
+
+### CORS
+
+Der Server erlaubt (statt `Any`) nur explizite Methoden und Header – für den Browser-CORS-Dialog relevant, für curl/fetch egal:
+
+```
+allow_methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+allow_headers: content-type, authorization, x-enc, x-req-id
 ```
 
 ---
@@ -273,9 +326,10 @@ console.log(JSON.parse(new TextDecoder().decode(plain)));
 
 | Maßnahme | Empfehlung |
 |----------|-----------|
-| `ENCRYPTION_SECRET` | Mind. 32 Zeichen, kryptografisch zufällig |
+| `ENCRYPTION_SECRET` | Mind. 32 Zeichen, kryptografisch zufällig; identisch zu `VITE_ENC_SECRET` |
+| `X-Req-Id` pro Request | Frische, einmalige ID senden – serverseitiges Anti-Replay (300 s) greift sonst nicht |
 | `BOOTSTRAP_TOKEN` | `openssl rand -hex 32` |
-| `CORS_ORIGIN` | Nur die echten Frontend-Origins |
+| `CORS_ORIGIN` | Nur die echten Frontend-Origins (Methoden/Header sind serverseitig auf Whitelist beschränkt) |
 | PostgreSQL-Port | Im Produktivbetrieb nach außen schließen |
 | Passwörter | Mind. 8 Zeichen (Server validiert), Argon2-verifiziert |
 | `auth/logout` | Aktiv nutzen – Session wird sofort gelöscht |
